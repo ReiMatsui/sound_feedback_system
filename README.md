@@ -1,1 +1,2 @@
-# nakamura_lab_research
+# nakamura_lab_researchpoetry run python src/main.py　
+で起動
