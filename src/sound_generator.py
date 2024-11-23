@@ -65,21 +65,21 @@ class SoundGenerator:
         pygame.midi.quit()
 
 
-
-def get_IOdeviceID():  
-    if pygame.midi.get_count() == 0:
-        raise ValueError("No device found")
-    for i in range(pygame.midi.get_count()):
-        interf, name, inputID, outputID, opened = pygame.midi.get_device_info(i)
-        if outputID:  # 出力デバイスのみ表示
-            logger.info(f"入力IDは{inputID},出力IDは{outputID}です") 
-    return inputID, outputID
+    @staticmethod
+    def get_IOdeviceID():  
+        if pygame.midi.get_count() == 0:
+            raise ValueError("No device found")
+        for i in range(pygame.midi.get_count()):
+            interf, name, inputID, outputID, opened = pygame.midi.get_device_info(i)
+            if outputID:  # 出力デバイスのみ表示
+                logger.info(f"入力IDは{inputID},出力IDは{outputID}です") 
+        return inputID, outputID
 
 if __name__ == "__main__":
     pygame.init()
     pygame.midi.init()
     try:
-        inputID, outputID = get_IOdeviceID()
+        inputID, outputID = SoundGenerator.get_IOdeviceID()
         sound_gen = SoundGenerator(inputID=inputID, outputID=outputID)
         
         sound_gen.play_major_notes()

@@ -9,7 +9,7 @@ def main():
 if __name__ == "__main__":
     pygame.midi.init()
     try:
-        inputID, outputID = get_IOdeviceID()
+        inputID, outputID = SoundGenerator.get_IOdeviceID()
         sound_gen = SoundGenerator(inputID=inputID, outputID=outputID)
         main()        
     except Exception as e:
