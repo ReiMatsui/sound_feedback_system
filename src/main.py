@@ -39,8 +39,8 @@ class HandFaceSoundTracker:
         pygame.init()
         pygame.midi.init()
         try:
-            inputID, outputID = SoundGenerator.get_IOdeviceID()
-            self.sound_generator = SoundGenerator(inputID=inputID, outputID=outputID)
+            input_id, output_id = SoundGenerator.get_IOdeviceID()
+            self.sound_generator = SoundGenerator(input_id=input_id, output_id=output_id)
         except Exception as e:
             logger.exception("音ジェネレーターの初期化に失敗")
             raise
