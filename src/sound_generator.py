@@ -105,7 +105,7 @@ class SoundGenerator:
         try:
             for i, note in enumerate(notes):
                 self.player.note_on(note, self.volume, channel=i)
-            logger.debug(f"ノート再生: {notes}")
+            # logger.debug(f"ノート再生: {notes}")
         except Exception as e:
             logger.error(f"ノート再生中にエラー: {e}")
 
@@ -117,7 +117,7 @@ class SoundGenerator:
         try:
             for i, note in enumerate(self.current_notes):
                 self.player.note_off(note, self.volume, channel=i)
-            logger.debug(f"ノート停止: {self.current_notes}")
+            # logger.debug(f"ノート停止: {self.current_notes}")
         except Exception as e:
             logger.error(f"ノート停止中にエラー: {e}")
 

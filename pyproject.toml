@@ -7,13 +7,12 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = ">=3.10,<3.13"
-opencv-python = "4.10.0.84"
 pygame = "^2.6.1"
 loguru = "^0.7.2"
-opencv-contrib-python = "^4.10.0.84"
 mediapipe = "^0.10.15"
 numpy = "1.26.0"
 pandas = "^2.2.3"
+opencv-python = "^4.10.0.84"
 
 [build-system]
 requires = ["poetry-core"]
