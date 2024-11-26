@@ -11,6 +11,7 @@ from sound_generator import SoundGenerator
 import pandas as pd
 from datetime import datetime
 import pathlib
+import faulthandler
 
 class HandFaceSoundTracker:
     def __init__(self, camera_no=0, width=640, height=360, history_size=50):
@@ -257,6 +258,7 @@ def main():
     アプリケーション起動
     """
     try:
+        faulthandler.enable()
         tracker = HandFaceSoundTracker()
         tracker.run()
     except Exception as e:

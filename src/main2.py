@@ -15,6 +15,7 @@ from garageband_handler import GarageBandHandler
 import pandas as pd
 from datetime import datetime
 import pathlib
+import faulthandler
 
 class HandFaceSoundTracker:
     def __init__(self, camera_no: int = 0, width: int = 640, height: int = 360, history_size:int = 50):
@@ -30,7 +31,7 @@ class HandFaceSoundTracker:
         self.mp_face_mesh = mp.solutions.face_mesh
         
         # カメラ設定
-        self.video_capture = cv2.VideoCapture(camera_no)
+        self.video_capture = cv2.VideoCapture(0)
         self.video_capture.set(cv2.CAP_PROP_FRAME_WIDTH, width)
         self.video_capture.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
         
@@ -290,6 +291,7 @@ class HandFaceSoundTracker:
         """
         try:
             while self.video_capture.isOpened():
+                cv2.startWindowThread()
                 ret, frame = self.video_capture.read()
                 if not ret:
                     break
@@ -348,34 +350,30 @@ class HandFaceSoundTracker:
                 
                 # フレーム表示
                 cv2.imshow('Hand and Face Tracking', image)    
-                
                 # 終了条件
-                key = cv2.waitKey(1)
-                if key == 27 or key == ord('q'):  # ESCキーまたは'q'キーで終了
+                if cv2.waitKey(1) == ord('q'):  # ESCキーまたは'q'キーで終了
                     break
-                
-                time.sleep(0.01)  # 少し待機してCPU負荷を下げる
         
         except Exception as e:
             logger.exception("処理中にエラーが発生")
         
         finally:
+            self._save_data()
             # クリーンアップ処理
             self.sound_generator.end()
             
-            time.sleep(5)
+            time.sleep(1)
             self.video_writer.release()
-            plt.close('all')
             self.video_capture.release()
+            time.sleep(1)
             cv2.destroyAllWindows()
-            cv2.waitKey(1)
+
             
-            time.sleep(5)
             # すべてのデータを保存
-            self._save_data()
+
             
             # グラフとアニメーションの生成
-            self._create_face_orientation_plots()
+            # self._create_face_orientation_plots()
             # self._create_3d_trajectory_animation()   
 
             
@@ -396,12 +394,12 @@ def main():
             level="INFO",
             encoding="utf-8"
         )
-        
+        faulthandler.enable()
         logger.info("アプリケーションを開始します")
         midi_filepath = "/Users/matsuirei/Music/GarageBand/sample.band"
         midi_handler = GarageBandHandler(file_path=midi_filepath)
         midi_handler.open_file()
-        time.sleep(5) # GarageBandのファイルが開くまで待機
+        # time.sleep(5) # GarageBandのファイルが開くまで待機
         logger.info("GarageBandのプロジェクト準備完了")
         # トラッカーの初期化と実行
         tracker = HandFaceSoundTracker()
@@ -412,10 +410,8 @@ def main():
     
     finally:
         # 最終的なクリーンアップ
-        cv2.destroyAllWindows()
-        plt.close('all')
         midi_handler.close_file()
-        logger.info("アプリケーションを終了します")
+
 
 if __name__ == '__main__':
     main()
