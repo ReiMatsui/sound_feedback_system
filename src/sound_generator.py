@@ -1,12 +1,13 @@
-import pygame.midi
 import time
 import threading
 from enum import Enum
 import math
-from typing import List, Optional, Tuple, Dict
+from typing import List, Optional, Tuple
 from dataclasses import dataclass
 from loguru import logger
 from concurrent.futures import ThreadPoolExecutor
+import mido
+from mido import Message
 
 @dataclass
 class Point:
@@ -31,60 +32,42 @@ class SoundGenerator:
     """
     ハンドトラッキングに基づいて音を生成するクラス
     """
-    def __init__(self, output_id: int, input_id: Optional[int] = None):
+    def __init__(self, output_name: str):
         """
         SoundGeneratorの初期化
 
         Args:
-            output_id: MIDI出力デバイスのID
-            input_id: MIDI入力デバイスのID（オプション）
+            output_name: MIDI出力デバイスの名前
         
         Raises:
-            ValueError: 無効なデバイスIDが指定された場合
             RuntimeError: デバイスの初期化に失敗した場合
         """
-
-        # 基本設定
         self.volume = 64  # MIDI標準のベロシティ
         self.current_scale = Scale.C_MAJOR
         self.current_notes: Optional[List[int]] = None
-        
-        # スレッド安全性の確保
         self.lock = threading.Lock()
         self.executor = ThreadPoolExecutor(max_workers=2)
-        
-        # 目標点の設定（正規化座標）
         self.goal_point = Point(0.5, 0.5)
         
-        # プレイヤーの初期化
         try:
-            self.player = pygame.midi.Output(output_id)
-            logger.info(f"MIDI出力デバイス (ID: {output_id}) の初期化に成功")
+            self.output = mido.open_output(output_name)
+            logger.info(f"MIDI出力デバイス '{output_name}' の初期化に成功")
         except Exception as e:
             logger.error(f"MIDI出力デバイスの初期化に失敗: {e}")
             raise RuntimeError("MIDI出力デバイスの初期化に失敗しました") from e
-        
-        logger.info("SoundGenerator初期化完了")
 
     def end(self) -> None:
         """リソースの解放とクリーンアップ"""
         try:
             self._stop_current_notes()
             self.executor.shutdown(wait=True)
-            if self.player:
-                self.player.close()
-            pygame.midi.quit()
+            self.output.close()
             logger.info("SoundGenerator終了処理完了")
         except Exception as e:
             logger.error(f"終了処理中にエラー: {e}")
 
     def update_notes(self, new_notes: List[int]) -> None:
-        """
-        再生中の音符を更新
-
-        Args:
-            new_notes: 新しい音符のリスト
-        """
+        """再生中の音符を更新"""
         with self.lock:
             if self.current_notes == new_notes:
                 return
@@ -96,16 +79,10 @@ class SoundGenerator:
             self._play_new_notes(new_notes)
 
     def _play_new_notes(self, notes: List[int]) -> None:
-        """
-        新しい音符を再生
-
-        Args:
-            notes: 再生する音符のリスト
-        """
+        """新しい音符を再生"""
         try:
-            for i, note in enumerate(notes):
-                self.player.note_on(note, self.volume, channel=i)
-            # logger.debug(f"ノート再生: {notes}")
+            for note in notes:
+                self.output.send(Message('note_on', note=note, velocity=self.volume))
         except Exception as e:
             logger.error(f"ノート再生中にエラー: {e}")
 
@@ -113,157 +90,52 @@ class SoundGenerator:
         """現在再生中の音符を停止"""
         if not self.current_notes:
             return
-            
         try:
-            for i, note in enumerate(self.current_notes):
-                self.player.note_off(note, self.volume, channel=i)
-            # logger.debug(f"ノート停止: {self.current_notes}")
+            for note in self.current_notes:
+                self.output.send(Message('note_off', note=note, velocity=self.volume))
         except Exception as e:
             logger.error(f"ノート停止中にエラー: {e}")
 
     def new_notes(self, x: float, y: float) -> List[int]:
-        """
-        座標に基づいて新しい音符を生成
-
-        Args:
-            x: x座標（0-1）
-            y: y座標（0-1）
-
-        Returns:
-            生成された音符のリスト
-        """
+        """座標に基づいて新しい音符を生成"""
         current_point = Point(x, y)
         dist = current_point.distance_to(self.goal_point)
-        
         if dist < 0.1:
             return self.current_scale.C_MAJOR.notes
         else:
-            # 距離に応じて音を変化させる
-            base_note = 60  # Middle C
-            note_offset = min(int(dist * 20), 24)  # 最大2オクターブまで下げる
+            base_note = 60
+            note_offset = min(int(dist * 20), 24)
             return [base_note - note_offset]
 
     def set_scale(self, scale: Scale) -> None:
-        """
-        使用する音階を設定
-
-        Args:
-            scale: 使用する音階
-        """
+        """使用する音階を設定"""
         self.current_scale = scale
         logger.info(f"音階を変更: {scale.description}")
 
     def set_volume(self, volume: int) -> None:
-        """
-        音量を設定
-
-        Args:
-            volume: 音量（0-127）
-        """
+        """音量を設定"""
         self.volume = max(0, min(127, volume))
         logger.info(f"音量を設定: {self.volume}")
 
     def set_goal_point(self, x: float, y: float) -> None:
-        """
-        目標点を設定
-
-        Args:
-            x: x座標（0-1）
-            y: y座標（0-1）
-        """
+        """目標点を設定"""
         self.goal_point = Point(x, y)
         logger.debug(f"目標点を設定: ({x}, {y})")
 
-    def end(self) -> None:
-        """リソースの解放とクリーンアップ"""
-        try:
-            self._stop_current_notes()
-            self.executor.shutdown(wait=True)
-            if self.player:
-                self.player.close()
-            pygame.midi.quit()
-            logger.info("SoundGenerator終了処理完了")
-        except Exception as e:
-            logger.error(f"終了処理中にエラー: {e}")
-
     @staticmethod
-    def get_IOdeviceID() -> Tuple[Optional[int], int]:
-        """
-        利用可能なMIDIデバイスを検索し、適切な入出力デバイスIDを返す
-
-        Returns:
-            Tuple[Optional[int], int]: (入力デバイスID, 出力デバイスID)
-
-        Raises:
-            ValueError: 適切なMIDIデバイスが見つからない場合
-        """
-        if not pygame.midi.get_count():
-            raise ValueError("MIDIデバイスが見つかりません")
-
-        devices = []
-        default_output = pygame.midi.get_default_output_id()
-
-        # デバイス情報の収集
-        for i in range(pygame.midi.get_count()):
-            try:
-                info = pygame.midi.get_device_info(i)
-                if info is None:
-                    continue
-
-                interface, name, is_input, is_output, is_opened = info
-                device_info = {
-                    'id': i,
-                    'interface': interface.decode('utf-8'),
-                    'name': name.decode('utf-8'),
-                    'is_input': bool(is_input),
-                    'is_output': bool(is_output),
-                    'is_opened': bool(is_opened)
-                }
-                devices.append(device_info)
-                
-                logger.info(
-                    f"デバイス {i}: {device_info['name']} "
-                    f"({'入力' if device_info['is_input'] else '出力'}) "
-                    f"[{'使用中' if device_info['is_opened'] else '利用可能'}]"
-                )
-            
-            except Exception as e:
-                logger.warning(f"デバイス {i} の情報取得に失敗: {e}")
-
-        # 出力デバイスの選択
-        output_id = default_output if default_output >= 0 else None
-        if output_id is None:
-            for dev in devices:
-                if dev['is_output'] and not dev['is_opened']:
-                    output_id = dev['id']
-                    break
-
-        if output_id is None:
-            raise ValueError("利用可能な出力デバイスが見つかりません")
-
-        # 入力デバイスの選択（オプション）
-        input_id = None
-        for dev in devices:
-            if dev['is_input'] and not dev['is_opened']:
-                input_id = dev['id']
-                break
-
-        logger.info(f"選択された出力デバイス ID: {output_id}")
-        if input_id is not None:
-            logger.info(f"選択された入力デバイス ID: {input_id}")
-
-        return input_id, output_id
+    def get_output_names() -> List[str]:
+        """利用可能なMIDI出力デバイス名を取得"""
+        return mido.get_output_names()
 
 def test_sound_generator():
     """SoundGeneratorのテスト関数"""
-    pygame.init()
-    pygame.midi.init()
-    
     try:
-        input_id, output_id = SoundGenerator.get_IOdeviceID()
-        sound_gen = SoundGenerator(output_id, input_id)
+        output_names = SoundGenerator.get_output_names()
+        if not output_names:
+            raise ValueError("利用可能なMIDI出力デバイスが見つかりません")
+        logger.info(f"利用可能なMIDI出力デバイス: {output_names}")
+        sound_gen = SoundGenerator(output_names[0])
         
-        # 基本機能のテスト
         logger.info("C Major スケールのテスト")
         sound_gen.set_scale(Scale.C_MAJOR)
         sound_gen.update_notes(Scale.C_MAJOR.notes)
@@ -278,7 +150,6 @@ def test_sound_generator():
         sound_gen.update_notes(Scale.DISSONANCE.notes)
         time.sleep(2)
         
-        # 座標に基づく音生成のテスト
         logger.info("座標ベースの音生成テスト")
         test_coordinates = [(0.5, 0.5), (0.2, 0.8), (0.8, 0.2)]
         for x, y in test_coordinates:
