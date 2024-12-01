@@ -11,7 +11,6 @@ from garageband_handler import GarageBandHandler
 import pandas as pd
 from datetime import datetime
 import pathlib
-import faulthandler
 import matplotlib.pyplot as plt
 from matplotlib import animation
 from mpl_toolkits.mplot3d import Axes3D
@@ -81,24 +80,44 @@ class HandFaceSoundTracker:
 
     def _calculate_face_orientation(self, landmarks):
         """
-        顔の向きを計算
+        顔の向き（yaw, pitch, roll）を計算
+        
+        Returns:
+            tuple: (yaw, pitch, roll) in degrees
+            - yaw: 左右の回転角度 (-: 左, +: 右)
+            - pitch: 上下の回転角度 (-: 上, +: 下)
+            - roll: 首の傾き (-: 左傾き, +: 右傾き)
         """
         try:
+            # 必要なランドマークのインデックス
+            # 鼻先
             nose_tip = landmarks.landmark[4]
-            left_eye = landmarks.landmark[33]
-            right_eye = landmarks.landmark[263]
+            # 両目の外側と内側のポイント
+            left_eye_outer = landmarks.landmark[33]
+            left_eye_inner = landmarks.landmark[133]
+            right_eye_inner = landmarks.landmark[362]
+            right_eye_outer = landmarks.landmark[263]
             
-            eye_distance = abs(left_eye.x - right_eye.x)
-            center_x = (left_eye.x + right_eye.x) / 2
-            yaw = np.arctan2(nose_tip.x - center_x, eye_distance) * 180 / np.pi
+            # Yawの計算 (左右の回転)
+            eye_center_x = (left_eye_outer.x + right_eye_outer.x) / 2
+            eye_distance = abs(left_eye_outer.x - right_eye_outer.x)
+            yaw = np.arctan2(nose_tip.x - eye_center_x, eye_distance) * 180 / np.pi
             
-            eye_y = (left_eye.y + right_eye.y) / 2
-            pitch = np.arctan2(nose_tip.y - eye_y, eye_distance) * 180 / np.pi
+            # Pitchの計算 (上下の回転)
+            eye_center_y = (left_eye_outer.y + right_eye_outer.y) / 2
+            pitch = np.arctan2(nose_tip.y - eye_center_y, eye_distance) * 180 / np.pi
             
-            return yaw, pitch
+            # Rollの計算 (首の傾き)
+            # 両目の傾きから計算
+            dy = right_eye_outer.y - left_eye_outer.y
+            dx = right_eye_outer.x - left_eye_outer.x
+            roll = np.arctan2(dy, dx) * 180 / np.pi
+            
+            return yaw, pitch, roll
+            
         except Exception as e:
             logger.error(f"顔の向き計算中にエラー: {e}")
-            return 0, 0
+            return 0, 0, 0
 
     def _process_hand_data(self, landmarks, hand_id):
         """
@@ -193,10 +212,10 @@ class HandFaceSoundTracker:
             return
             
         try:
-            fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 8))
+            fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(12, 12))
             
             df = pd.DataFrame(self.face_orientation_data, 
-                             columns=['timestamp', 'yaw', 'pitch'])
+                             columns=['timestamp', 'yaw', 'pitch', 'roll'])
             df['relative_time'] = df['timestamp'] - df['timestamp'].iloc[0]
             
             ax1.plot(df['relative_time'], df['yaw'], 'b-', linewidth=1)
@@ -206,9 +225,14 @@ class HandFaceSoundTracker:
             
             ax2.plot(df['relative_time'], df['pitch'], 'r-', linewidth=1)
             ax2.set_title('Pitch (Up/Down) Over Time')
-            ax2.set_xlabel('Time (seconds)')
             ax2.set_ylabel('Angle (degrees)')
             ax2.grid(True)
+            
+            ax3.plot(df['relative_time'], df['roll'], 'g-', linewidth=1)
+            ax3.set_title('Roll (Head Tilt) Over Time')
+            ax3.set_xlabel('Time (seconds)')
+            ax3.set_ylabel('Angle (degrees)')
+            ax3.grid(True)
             
             plt.tight_layout()
             
@@ -318,32 +342,32 @@ class HandFaceSoundTracker:
             logger.error(f"3Dアニメーション作成中にエラー: {e}")
 
     def _save_data(self):
-            """
-            すべてのデータをCSVファイルに保存
-            """
-            try:
-                # 顔の向きデータの保存
-                if self.face_orientation_data:
-                    df_face = pd.DataFrame(self.face_orientation_data,
-                                        columns=['timestamp', 'yaw', 'pitch'])
-                    df_face['relative_time'] = df_face['timestamp'] - df_face['timestamp'].iloc[0]
-                    df_face.to_csv(self.session_dir / 'face_orientation.csv', index=False)
-                    
-                # 手の軌跡データの保存
-                if self.hand_trajectory_data:
-                    dfs = []
-                    for hand_id, data in self.hand_trajectory_data.items():
-                        df = pd.DataFrame(data)
-                        df['hand_id'] = hand_id
-                        dfs.append(df)
-                    
-                    df_hands = pd.concat(dfs, ignore_index=True)
-                    df_hands['relative_time'] = df_hands['timestamp'] - df_hands['timestamp'].min()
-                    df_hands.to_csv(self.session_dir / 'hand_trajectories.csv', index=False)
+        """
+        すべてのデータをCSVファイルに保存
+        """
+        try:
+            # 顔の向きデータの保存
+            if self.face_orientation_data:
+                df_face = pd.DataFrame(self.face_orientation_data,
+                                    columns=['timestamp', 'yaw', 'pitch', 'roll'])
+                df_face['relative_time'] = df_face['timestamp'] - df_face['timestamp'].iloc[0]
+                df_face.to_csv(self.session_dir / 'face_orientation.csv', index=False)
                 
-                logger.info("すべてのデータを保存しました")
-            except Exception as e:
-                logger.error(f"データ保存中にエラー: {e}")
+            # 手の軌跡データの保存
+            if self.hand_trajectory_data:
+                dfs = []
+                for hand_id, data in self.hand_trajectory_data.items():
+                    df = pd.DataFrame(data)
+                    df['hand_id'] = hand_id
+                    dfs.append(df)
+                
+                df_hands = pd.concat(dfs, ignore_index=True)
+                df_hands['relative_time'] = df_hands['timestamp'] - df_hands['timestamp'].min()
+                df_hands.to_csv(self.session_dir / 'hand_trajectories.csv', index=False)
+            
+            logger.info("すべてのデータを保存しました")
+        except Exception as e:
+            logger.error(f"データ保存中にエラー: {e}")
 
     def run(self):
         """
@@ -403,12 +427,15 @@ class HandFaceSoundTracker:
                 if results['face']['multi_face_landmarks']:
                     try:
                         face_landmarks = results['face']['multi_face_landmarks'][0]
-                        yaw, pitch = self._calculate_face_orientation(face_landmarks)
-                        self.face_orientation_data.append([time.time(), yaw, pitch])
+                        yaw, pitch, roll = self._calculate_face_orientation(face_landmarks)
+                        self.face_orientation_data.append([time.time(), yaw, pitch, roll])
                         
+                        # 画面表示を更新
                         cv2.putText(image, f'Yaw: {yaw:.1f}', (10, 30), 
                                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
                         cv2.putText(image, f'Pitch: {pitch:.1f}', (10, 70), 
+                                   cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                        cv2.putText(image, f'Roll: {roll:.1f}', (10, 110), 
                                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
                     except Exception as e:
                         logger.error(f"顔の向き処理中のエラー: {e}")
@@ -472,7 +499,6 @@ def main():
             level="INFO",
             encoding="utf-8"
         )
-        faulthandler.enable()
         logger.info("アプリケーションを開始します")
         
         # トラッカーの初期化と実行
