@@ -426,14 +426,9 @@ class HandFaceSoundTracker:
                                 self.sound_generator.update_notes(new_notes)
                             
                             # 手のひらの向きを画面に表示（デバッグ用）
-                            if self.sound_generator.hand_orientation:
-                                palm_direction = self.sound_generator.hand_orientation.palm_direction
-                                is_palm_up = self.sound_generator.hand_orientation.is_palm_up
-                                cv2.putText(image, f'Palm direction: {palm_direction:.2f}', (10, 30),
-                                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-                                cv2.putText(image, f'Palm up: {is_palm_up}', (10, 70),
-                                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-                    
+                            is_palm_up = self.sound_generator.is_palm_up
+                            cv2.putText(image, f'Palm up: {is_palm_up}', (10, 30),cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                
                         except Exception as e:
                             logger.error(f"ハンドランドマーク処理中のエラー: {e}")
                             continue

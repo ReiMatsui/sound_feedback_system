@@ -19,12 +19,6 @@ class Point:
         """別の点との距離を計算"""
         return math.sqrt((self.x - other.x) ** 2 + (self.y - other.y) ** 2)
 
-@dataclass
-class HandOrientation:
-    """手の向きを表すクラス"""
-    palm_direction: float  # 手のひらの上下方向（z軸方向の値）
-    is_palm_up: bool      # 手のひらが上を向いているかどうか
-
 class Scale(Enum):
     """音階の定義"""
     C_MAJOR = ([60, 64, 67, 72, 76, 79], "C Major")  # C major
@@ -55,7 +49,7 @@ class SoundGenerator:
         self.lock = threading.Lock()
         self.executor = ThreadPoolExecutor(max_workers=2)
         self.goal_point = Point(0.5, 0.5)
-        self.hand_orientation: Optional[HandOrientation] = None
+        self.is_palm_up = False
         
         
         try:
@@ -105,7 +99,7 @@ class SoundGenerator:
         except Exception as e:
             logger.error(f"ノート停止中にエラー: {e}")
     
-    def calculate_palm_orientation(self, landmarks, handedness) -> HandOrientation:
+    def judge_palm_up(self, landmarks, handedness) -> bool:
         """
         手のひらの向きを計算
         
@@ -115,36 +109,32 @@ class SoundGenerator:
         """
         try:
             if_left = (handedness == "Left")
-            # 手のひらの中心を計算
-            palm_center = np.array([landmarks.landmark[9].x,
-                                  landmarks.landmark[9].y,
-                                  landmarks.landmark[9].z])
+            # 人差し指の付け根
+            point5 = np.array([landmarks.landmark[5].x,
+                                  landmarks.landmark[5].y])
+            # 小指の付け根
+            point17 = np.array([landmarks.landmark[17].x,
+                                  landmarks.landmark[17].y])          
             
-            # 手首の位置
-            wrist = np.array([landmarks.landmark[0].x,
-                            landmarks.landmark[0].y,
-                            landmarks.landmark[0].z])
+            vector = point17 - point5
             
             if_up = (landmarks.landmark[8].x < landmarks.landmark[20].x) if if_left else (landmarks.landmark[8].x > landmarks.landmark[20].x )
             
-            # 手のひらの法線ベクトルを計算
-            palm_normal = palm_center - wrist
-            palm_normal = palm_normal / np.linalg.norm(palm_normal)
+            angle = np.degrees(np.arctan2(vector[1], vector[0]))
+            if_horizontal = (angle < 30) or (angle > 150)
+        
+            is_palm_up = if_horizontal and if_up # 閾値は調整可能
             
-            # Z軸方向の成分から手のひらの向きを判定
-            palm_direction = palm_normal[1]
-            is_palm_up = palm_direction > 0.5 and if_up # 閾値は調整可能
-            
-            return HandOrientation(palm_direction, is_palm_up)
+            return is_palm_up
             
         except Exception as e:
             logger.error(f"手のひらの向き計算中にエラー: {e}")
-            return HandOrientation(0.0, False)
+            return False
 
     
     def update_hand_orientation(self, landmarks, handedness) -> None:
         """手の向きを更新"""
-        self.hand_orientation = self.calculate_palm_orientation(landmarks, handedness)
+        self.is_palm_up = self.judge_palm_up(landmarks, handedness)
         
     def should_play_consonant(self, hand_point: Point) -> bool:
         """
@@ -154,21 +144,22 @@ class SoundGenerator:
         1. 手が目標点の近く (distance < 0.1)
         2. 手のひらが上を向いている
         """
-        if not self.hand_orientation:
-            return False
-            
+         
         dist_condition = hand_point.distance_to(self.goal_point) < 0.1
-        palm_condition = self.hand_orientation.is_palm_up
+        palm_condition = self.is_palm_up
         
         return dist_condition and palm_condition
     
     def new_notes(self, x: float, y: float) -> List[int]:
         """座標と手のひらの向きに基づいて新しい音符を生成"""
         current_point = Point(x, y)
+        self.volume = 64
         
         if self.should_play_consonant(current_point):
             return self.current_scale.C_MAJOR.notes
         else:
+            if self.is_palm_up:
+                self.volume = 100
             base_note = 60
             dist = current_point.distance_to(self.goal_point)
             note_offset = min(int(dist * 20), 24)
