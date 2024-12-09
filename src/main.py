@@ -178,7 +178,8 @@ class HandFaceSoundTracker:
                                     landmark.copy() if hasattr(landmark, 'copy') 
                                     else landmark 
                                     for landmark in (hands_results.multi_hand_landmarks or [])
-                                ]
+                                ],
+                                'handedness': hands_results.multi_handedness
                             },
                             'face': {
                                 'multi_face_landmarks': [
@@ -398,7 +399,7 @@ class HandFaceSoundTracker:
                     continue
                 
                 image = processed_frame.copy()
-                
+
                 # 手のランドマーク処理
                 if results['hands']['multi_hand_landmarks']:
                     for i, landmarks in enumerate(results['hands']['multi_hand_landmarks']):
@@ -414,11 +415,25 @@ class HandFaceSoundTracker:
                             self._process_hand_data(landmarks, i)
                             
                             if i == 0:
-                                new_notes = self.sound_generator.new_notes(
-                                    landmarks.landmark[9].x,
-                                    landmarks.landmark[9].y
-                                )
+                                hand_x = landmarks.landmark[9].x
+                                hand_y = landmarks.landmark[9].y
+                                handedness = results['hands']['handedness'][0].classification[0].label
+                                
+                                # 手のひらの向きを更新
+                                self.sound_generator.update_hand_orientation(landmarks, handedness)
+                                
+                                new_notes = self.sound_generator.new_notes(hand_x, hand_y)
                                 self.sound_generator.update_notes(new_notes)
+                            
+                            # 手のひらの向きを画面に表示（デバッグ用）
+                            if self.sound_generator.hand_orientation:
+                                palm_direction = self.sound_generator.hand_orientation.palm_direction
+                                is_palm_up = self.sound_generator.hand_orientation.is_palm_up
+                                cv2.putText(image, f'Palm direction: {palm_direction:.2f}', (10, 30),
+                                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                                cv2.putText(image, f'Palm up: {is_palm_up}', (10, 70),
+                                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                    
                         except Exception as e:
                             logger.error(f"ハンドランドマーク処理中のエラー: {e}")
                             continue
@@ -431,12 +446,12 @@ class HandFaceSoundTracker:
                         self.face_orientation_data.append([time.time(), yaw, pitch, roll])
                         
                         # 画面表示を更新
-                        cv2.putText(image, f'Yaw: {yaw:.1f}', (10, 30), 
-                                   cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-                        cv2.putText(image, f'Pitch: {pitch:.1f}', (10, 70), 
-                                   cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-                        cv2.putText(image, f'Roll: {roll:.1f}', (10, 110), 
-                                   cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                        # cv2.putText(image, f'Yaw: {yaw:.1f}', (10, 30), 
+                        #            cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                        # cv2.putText(image, f'Pitch: {pitch:.1f}', (10, 70), 
+                        #            cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                        # cv2.putText(image, f'Roll: {roll:.1f}', (10, 110), 
+                        #            cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
                     except Exception as e:
                         logger.error(f"顔の向き処理中のエラー: {e}")
                 

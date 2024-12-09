@@ -1,5 +1,6 @@
 import time
 import threading
+import numpy as np
 from enum import Enum
 import math
 from typing import List, Optional, Tuple
@@ -17,6 +18,12 @@ class Point:
     def distance_to(self, other: 'Point') -> float:
         """別の点との距離を計算"""
         return math.sqrt((self.x - other.x) ** 2 + (self.y - other.y) ** 2)
+
+@dataclass
+class HandOrientation:
+    """手の向きを表すクラス"""
+    palm_direction: float  # 手のひらの上下方向（z軸方向の値）
+    is_palm_up: bool      # 手のひらが上を向いているかどうか
 
 class Scale(Enum):
     """音階の定義"""
@@ -48,6 +55,8 @@ class SoundGenerator:
         self.lock = threading.Lock()
         self.executor = ThreadPoolExecutor(max_workers=2)
         self.goal_point = Point(0.5, 0.5)
+        self.hand_orientation: Optional[HandOrientation] = None
+        
         
         try:
             self.output = mido.open_output(output_name)
@@ -95,15 +104,73 @@ class SoundGenerator:
                 self.output.send(Message('note_off', note=note, velocity=self.volume))
         except Exception as e:
             logger.error(f"ノート停止中にエラー: {e}")
+    
+    def calculate_palm_orientation(self, landmarks, handedness) -> HandOrientation:
+        """
+        手のひらの向きを計算
+        
+        手のひらの法線ベクトルを計算し、上向きかどうかを判定
+        landmark[0]: 手首
+        landmark[5, 9, 13, 17]: 指の付け根
+        """
+        try:
+            if_left = (handedness == "Left")
+            # 手のひらの中心を計算
+            palm_center = np.array([landmarks.landmark[9].x,
+                                  landmarks.landmark[9].y,
+                                  landmarks.landmark[9].z])
+            
+            # 手首の位置
+            wrist = np.array([landmarks.landmark[0].x,
+                            landmarks.landmark[0].y,
+                            landmarks.landmark[0].z])
+            
+            if_up = (landmarks.landmark[8].x < landmarks.landmark[20].x) if if_left else (landmarks.landmark[8].x > landmarks.landmark[20].x )
+            
+            # 手のひらの法線ベクトルを計算
+            palm_normal = palm_center - wrist
+            palm_normal = palm_normal / np.linalg.norm(palm_normal)
+            
+            # Z軸方向の成分から手のひらの向きを判定
+            palm_direction = palm_normal[1]
+            is_palm_up = palm_direction > 0.5 and if_up # 閾値は調整可能
+            
+            return HandOrientation(palm_direction, is_palm_up)
+            
+        except Exception as e:
+            logger.error(f"手のひらの向き計算中にエラー: {e}")
+            return HandOrientation(0.0, False)
 
+    
+    def update_hand_orientation(self, landmarks, handedness) -> None:
+        """手の向きを更新"""
+        self.hand_orientation = self.calculate_palm_orientation(landmarks, handedness)
+        
+    def should_play_consonant(self, hand_point: Point) -> bool:
+        """
+        協和音を再生すべきかどうかを判定
+        
+        条件:
+        1. 手が目標点の近く (distance < 0.1)
+        2. 手のひらが上を向いている
+        """
+        if not self.hand_orientation:
+            return False
+            
+        dist_condition = hand_point.distance_to(self.goal_point) < 0.1
+        palm_condition = self.hand_orientation.is_palm_up
+        
+        return dist_condition and palm_condition
+    
     def new_notes(self, x: float, y: float) -> List[int]:
-        """座標に基づいて新しい音符を生成"""
+        """座標と手のひらの向きに基づいて新しい音符を生成"""
         current_point = Point(x, y)
-        dist = current_point.distance_to(self.goal_point)
-        if dist < 0.1:
+        
+        if self.should_play_consonant(current_point):
             return self.current_scale.C_MAJOR.notes
         else:
             base_note = 60
+            dist = current_point.distance_to(self.goal_point)
             note_offset = min(int(dist * 20), 24)
             return [base_note - note_offset]
 
