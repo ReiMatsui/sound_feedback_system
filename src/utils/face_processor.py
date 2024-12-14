@@ -1,23 +1,106 @@
 import mediapipe as mp
 import numpy as np
 import cv2
+import threading 
+import queue
 from loguru import logger
+from utils.data_recorder import DataRecorder
 
 class FaceProcessor:
-    def __init__(self, ):
+    """ 
+    mediapipeで顔の処理を行うクラス
+    """
+    def __init__(self, data_recorder: DataRecorder):
+        self.data_recorder = data_recorder
         self.mp_face_mesh = mp.solutions.face_mesh
-        self.face_mesh = self.mp_face_mesh.FaceMesh(
-            static_image_mode=False,
-            max_num_faces=1,
-            min_detection_confidence=0.5,
-            min_tracking_confidence=0.5
-        )
+        self.face_frame_queue = queue.Queue(maxsize=10)
+        self.face_result_queue = queue.Queue(maxsize=10)
+        self.running = threading.Event()
+        self.process_thread = threading.Thread(target=self.process_frame)
+        self.process_thread.daemon = True
+        self.running.set()
     
-    def process_frame(self, frame):
-        image_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        return self.face_mesh.process(image_rgb)
+    def start(self):
+        self.process_thread.start()
+        return
     
-    def calculate_orientation(self, landmarks):
+    def clean_up(self):
+        """
+        別スレッドでのmediapipe処理を終了し、キューをクリア
+        """
+        self.running.clear()
+        # キューをクリア
+        for q in [self.face_frame_queue, self.face_result_queue]:
+            while not q.empty():
+                try:
+                    q.get_nowait()
+                except queue.Empty:
+                    break
+        self.process_thread.join(timeout=2.0)
+    
+    def put_to_queue(self, frame):
+        self.face_frame_queue.put(frame, timeout=0.1)
+
+    def get_from_queue(self):
+        face_results, processed_face_frame  = self.face_result_queue.get(timeout=0.1)
+        return face_results, processed_face_frame 
+
+    
+    def process_frame(self):
+        """
+        別スレッドで顔のMediaPipe処理を実行
+        """
+        try:
+            with self.mp_face_mesh.FaceMesh(
+                static_image_mode=False,
+                max_num_faces=1,
+                min_detection_confidence=0.5,
+                min_tracking_confidence=0.5
+            ) as face_mesh:
+                while self.running.is_set():
+                    try:
+                        frame = self.face_frame_queue.get(timeout=1.0)
+                        if frame is None:
+                            continue
+                        
+                        frame_copy = frame.copy()
+                        image_rgb = cv2.cvtColor(frame_copy, cv2.COLOR_BGR2RGB)
+                        face_results = face_mesh.process(image_rgb)
+                        
+                        results = {
+                            'multi_face_landmarks': [
+                                landmark.copy() if hasattr(landmark, 'copy') 
+                                else landmark 
+                                for landmark in (face_results.multi_face_landmarks or [])
+                            ] if face_results.multi_face_landmarks else None
+                        }
+                        
+                        self.face_result_queue.put((results, frame_copy))
+                        
+                    except queue.Empty:
+                        continue
+                    except Exception as e:
+                        logger.exception(f"{e}:顔フレーム処理中にエラーが発生")
+                        continue
+                        
+        except Exception as e:
+            logger.exception(f"{e}:MediaPipe処理スレッドでエラーが発生")
+        finally:
+            logger.info("顔MediaPipe処理スレッドを終了します")
+    
+    def process_face_landmarks(self, face_results):
+        """
+        顔の向き処理
+        """
+        try:
+            face_landmarks = face_results['multi_face_landmarks'][0]
+            yaw, pitch, roll = self.calculate_face_orientation(face_landmarks)
+            self.data_recorder.record_face_orientation(yaw, pitch, roll)
+            
+        except Exception as e:
+            logger.error(f"顔の向き処理中のエラー: {e}")
+            
+    def calculate_face_orientation(self, landmarks):
         """
         顔の向き（yaw, pitch, roll）を計算
         
@@ -33,8 +116,10 @@ class FaceProcessor:
             nose_tip = landmarks.landmark[4]
             # 両目の外側と内側のポイント
             left_eye_outer = landmarks.landmark[33]
-            left_eye_inner = landmarks.landmark[133]
-            right_eye_inner = landmarks.landmark[362]
+            
+            # left_eye_inner = landmarks.landmark[133]
+            # right_eye_inner = landmarks.landmark[362]
+            
             right_eye_outer = landmarks.landmark[263]
             
             # Yawの計算 (左右の回転)

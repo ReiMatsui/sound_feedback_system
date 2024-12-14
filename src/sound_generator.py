@@ -3,7 +3,7 @@ import threading
 import numpy as np
 from enum import Enum
 import math
-from typing import List, Optional, Tuple
+from typing import List, Optional
 from dataclasses import dataclass
 from loguru import logger
 from concurrent.futures import ThreadPoolExecutor
@@ -16,11 +16,15 @@ class Point:
     y: float
 
     def distance_to(self, other: 'Point') -> float:
-        """別の点との距離を計算"""
+        """
+        別の点との距離を計算
+        """
         return math.sqrt((self.x - other.x) ** 2 + (self.y - other.y) ** 2)
 
 class Scale(Enum):
-    """音階の定義"""
+    """
+    音階の定義
+    """
     C_MAJOR = ([60, 64, 67, 72, 76, 79], "C Major")  # C major
     A_MINOR = ([60, 64, 69, 72, 76, 81], "A Minor")  # A minor
     DISSONANCE = ([60, 58, 57, 56, 55, 54], "Dissonance")  # Dissonant notes
@@ -216,7 +220,7 @@ def test_sound_generator():
             time.sleep(1)
         
     except Exception as e:
-        logger.exception("テスト中にエラーが発生")
+        logger.exception(f"テスト中にエラーが発生:{e}")
     finally:
         sound_gen.end()
 

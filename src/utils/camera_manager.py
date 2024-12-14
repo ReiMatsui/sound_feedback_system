@@ -2,22 +2,27 @@ import cv2
 from loguru import logger
 
 class CameraManager:
-    def __init__(self, face_camera_no: int = 0, hand_camera_no: int = 1, width: int = 640, height: int = 360):
-        self.face_capture = cv2.VideoCapture(face_camera_no)
-        self.hand_capture = cv2.VideoCapture(hand_camera_no)
-        
-        for capture in [self.face_capture, self.hand_capture]:
-            capture.set(cv2.CAP_PROP_FRAME_WIDTH, width)
-            capture.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
-    
+    """
+    カメラ映像を取得するクラス
+    """
+    def __init__(self, camera_no: int = 0, width: int = 640, height: int = 360):
+        self.capture = cv2.VideoCapture(camera_no)
+
+        self.capture.set(cv2.CAP_PROP_FRAME_WIDTH, width)
+        self.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+
     def get_frames(self):
-        face_ret, face_frame = self.face_capture.read()
-        hand_ret, hand_frame = self.hand_capture.read()
+        self.ret, self.frame = self.capture.read()
         
-        if face_ret and hand_ret:
-            return cv2.flip(face_frame, 1), cv2.flip(hand_frame, 1)
+        if self.ret:
+            return cv2.flip(self.frame, 1)
         return None, None
     
+    def imshow(self, window_name: str):
+        try:
+            cv2.imshow(window_name, self.frame)
+        except Exception as e:
+            logger.error(f"画像表示/保存中のエラー: {e}")  
+            
     def release(self):
-        self.face_capture.release()
-        self.hand_capture.release()
+        self.capture.release()

@@ -13,14 +13,14 @@ class DataVisualizer:
         """
         顔の向きのグラフを作成して保存
         """
-        if not self.face_orientation_data:
+        if not face_orientation_data:
             logger.warning("顔の向きデータがありません")
             return
             
         try:
             fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(12, 12))
             
-            df = pd.DataFrame(self.face_orientation_data, 
+            df = pd.DataFrame(face_orientation_data, 
                              columns=['timestamp', 'yaw', 'pitch', 'roll'])
             df['relative_time'] = df['timestamp'] - df['timestamp'].iloc[0]
             
@@ -54,7 +54,7 @@ class DataVisualizer:
         """
         手の軌跡の3Dアニメーションを作成して保存
         """
-        if not self.hand_trajectory_data:
+        if not hand_trajectory_data:
             logger.warning("手の軌跡データがありません")
             return
 
@@ -65,7 +65,7 @@ class DataVisualizer:
             y_coords = []
             z_coords = []
             
-            for data in self.hand_trajectory_data.values():
+            for data in hand_trajectory_data.values():
                 timestamps.extend(data['timestamp'])
                 x_coords.extend(data['x'])
                 y_coords.extend(data['y'])

@@ -2,17 +2,28 @@ import pandas as pd
 from pathlib import Path
 import time
 from loguru import logger
+from src.utils.data_visualizer import DataVisualizer
 
 class DataRecorder:
+    """ 
+    各種データを保存するクラス
+    """
     def __init__(self, session_dir: Path):
         self.session_dir = session_dir
         self.face_orientation_data = []
         self.hand_trajectory_data = {}
+        self.data_visualizer = DataVisualizer(self.session_dir)
     
     def record_face_orientation(self, yaw, pitch, roll):
+        """
+        顔の向き情報をリストに保存
+        """
         self.face_orientation_data.append([time.time(), yaw, pitch, roll])
     
     def record_hand_trajectory(self, landmarks, hand_id):
+        """ 
+        手の位置を辞書に保存
+        """
         if hand_id not in self.hand_trajectory_data:
             self.hand_trajectory_data[hand_id] = {'timestamp': [], 'x': [], 'y': [], 'z': []}
         
@@ -51,3 +62,10 @@ class DataRecorder:
             logger.info("すべてのデータを保存しました")
         except Exception as e:
             logger.error(f"データ保存中にエラー: {e}")
+    
+    def visualize_data(self):
+        """
+        各種データを可視化して保存
+        """
+        self.data_visualizer.create_face_orientation_plots(self.face_orientation_data)
+        self.data_visualizer.create_3d_trajectory_animation(self.hand_trajectory_data)
