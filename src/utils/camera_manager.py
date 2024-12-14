@@ -1,4 +1,5 @@
 import cv2
+import numpy
 from loguru import logger
 
 class CameraManager:
@@ -18,9 +19,9 @@ class CameraManager:
             return cv2.flip(self.frame, 1)
         return None, None
     
-    def imshow(self, window_name: str):
+    def imshow(self, window_name: str, image: numpy.ndarray):
         try:
-            cv2.imshow(window_name, self.frame)
+            cv2.imshow(window_name, image)
         except Exception as e:
             logger.error(f"画像表示/保存中のエラー: {e}")  
             

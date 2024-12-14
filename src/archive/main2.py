@@ -6,8 +6,8 @@ import os
 import threading
 import queue
 from loguru import logger
-from sound_generator import SoundGenerator
-from garageband_handler import GarageBandHandler
+from src.utils.sound_generator import SoundGenerator
+from src.utils.garageband_handler import GarageBandHandler
 import pandas as pd
 from datetime import datetime
 import pathlib

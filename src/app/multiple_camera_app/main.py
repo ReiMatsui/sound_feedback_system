@@ -9,15 +9,19 @@ from src.utils.face_processor import FaceProcessor
 from src.utils.hand_processor import HandProcessor
 from src.utils.video_recorder import VideoRecorder
 
-class DualCameraHandFaceSoundTracker:
+class Application:
+    """
+    手の位置に応じて音を変換して伝える
+    顔向きデータ、手の位置データなどを取得
+    """
     def __init__(self, face_camera_no: int = 0, hand_camera_no: int = 1):
         
         # 日時ごとのディレクトリ作成
         self.session_dir = self._create_session_dir()
         
         # 手と顔の検出用カメラ初期化
-        self.hand_camera_manager = CameraManager(hand_camera_no=hand_camera_no)
-        self.face_camera_manager = CameraManager(face_camera_no=face_camera_no)
+        self.hand_camera_manager = CameraManager(camera_no=hand_camera_no)
+        self.face_camera_manager = CameraManager(camera_no=face_camera_no)
         
         # 顔向き、手の座標データcsv作成と可視化
         self.data_recorder = DataRecorder(self.session_dir)
@@ -29,8 +33,6 @@ class DualCameraHandFaceSoundTracker:
         # 録画クライアントの初期化
         self.face_video_recorder = VideoRecorder(session_dir=self.session_dir,video_name="face_tracking_video.mp4", width=640, height=360)
         self.hand_video_recorder = VideoRecorder(session_dir=self.session_dir,video_name="hand_tracking_video.mp4", width=640, height=480)
-        
-        self.running = True
     
     def _create_session_dir(self):
         session_start_time = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -88,8 +90,8 @@ class DualCameraHandFaceSoundTracker:
                 self.hand_video_recorder.write_frames(hand_image)
                 
                 # カメラからの処理済み映像を表示
-                self.face_camera_manager.imshow("Face Tracking")
-                self.hand_camera_manager.imshow("Hand Tracking")
+                self.face_camera_manager.imshow("Face Tracking", face_image)
+                self.hand_camera_manager.imshow("Hand Tracking", hand_image)
             
                 if cv2.waitKey(1) == ord('q'):
                     break
@@ -135,9 +137,9 @@ def main():
         )
         logger.info("アプリケーションを開始します")
         
-        # トラッカーの初期化と実行
-        tracker = DualCameraHandFaceSoundTracker()
-        tracker.run()
+        # アプリケーションの初期化と実行
+        app = Application()
+        app.run()
         
     except Exception as e:
         logger.exception(f"アプリケーションの起動に失敗{e}")

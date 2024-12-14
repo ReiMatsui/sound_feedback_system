@@ -4,7 +4,7 @@ import cv2
 import threading 
 import queue
 from loguru import logger
-from utils.data_recorder import DataRecorder
+from src.utils.data_recorder import DataRecorder
 
 class FaceProcessor:
     """ 
@@ -13,8 +13,10 @@ class FaceProcessor:
     def __init__(self, data_recorder: DataRecorder):
         self.data_recorder = data_recorder
         self.mp_face_mesh = mp.solutions.face_mesh
+        
         self.face_frame_queue = queue.Queue(maxsize=10)
         self.face_result_queue = queue.Queue(maxsize=10)
+        
         self.running = threading.Event()
         self.process_thread = threading.Thread(target=self.process_frame)
         self.process_thread.daemon = True

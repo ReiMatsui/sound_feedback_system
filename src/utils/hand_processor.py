@@ -3,8 +3,8 @@ import mediapipe as mp
 import threading
 import queue
 from loguru import logger
-from src.sound_generator import SoundGenerator
-from utils.data_recorder import DataRecorder
+from src.utils.sound_generator import SoundGenerator
+from src.utils.data_recorder import DataRecorder
 
 class HandProcessor:
     """ 
