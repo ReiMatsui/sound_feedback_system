@@ -12,7 +12,14 @@ cd matsui_research
 poetry install
 ```
 ## 起動方法
-
+### Ubuntuの場合
+* timidityを起動しておく
+```
+timidity -iA
+```
+### Macの場合
+* GarageBandでプロジェクトを起動しておく
+### 実行
 * 顔と手を別のカメラで検出する場合 
 ``` 
 poetry run python src/app/multiple_camera_app/main.py

@@ -196,7 +196,7 @@ def test_sound_generator():
         if not output_names:
             raise ValueError("利用可能なMIDI出力デバイスが見つかりません")
         logger.info(f"利用可能なMIDI出力デバイス: {output_names}")
-        sound_gen = SoundGenerator(output_names[0])
+        sound_gen = SoundGenerator(output_names[1])
         
         logger.info("C Major スケールのテスト")
         sound_gen.set_scale(Scale.C_MAJOR)
