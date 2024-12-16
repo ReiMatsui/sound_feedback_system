@@ -83,7 +83,7 @@ class Application:
                 
                 # 顔のランドマーク処理
                 if face_results['multi_face_landmarks']:
-                    self.face_processor.process_face_landmarks(face_results)
+                    self.face_processor.process_face_landmarks(face_image, face_results)
                     
                 # 手と顔のカメラ画面録画    
                 self.face_video_recorder.write_frames(face_image)

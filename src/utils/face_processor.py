@@ -17,6 +17,9 @@ class FaceProcessor:
         self.face_frame_queue = queue.Queue(maxsize=10)
         self.face_result_queue = queue.Queue(maxsize=10)
         
+        self.mp_drawing = mp.solutions.drawing_utils
+        self.mp_drawing_styles = mp.solutions.drawing_styles
+        
         self.running = threading.Event()
         self.process_thread = threading.Thread(target=self.process_frame)
         self.process_thread.daemon = True
@@ -47,7 +50,15 @@ class FaceProcessor:
         face_results, processed_face_frame  = self.face_result_queue.get(timeout=0.1)
         return face_results, processed_face_frame 
 
-    
+    def draw_landmarks(self, image, landmarks):
+        self.mp_drawing.draw_landmarks(
+            image,
+            landmarks,
+            self.mp_face_mesh.FACEMESH_TESSELATION,
+            None,
+            self.mp_drawing_styles.get_default_face_mesh_tesselation_style()
+        )
+        
     def process_frame(self):
         """
         別スレッドで顔のMediaPipe処理を実行
@@ -90,12 +101,13 @@ class FaceProcessor:
         finally:
             logger.info("顔のMediaPipe処理スレッドを終了します")
     
-    def process_face_landmarks(self, face_results):
+    def process_face_landmarks(self, face_image, face_results):
         """
         顔の向き処理
         """
         try:
             face_landmarks = face_results['multi_face_landmarks'][0]
+            # self.draw_landmarks(face_image, face_landmarks)
             yaw, pitch, roll = self.calculate_face_orientation(face_landmarks)
             self.data_recorder.record_face_orientation(yaw, pitch, roll)
             
