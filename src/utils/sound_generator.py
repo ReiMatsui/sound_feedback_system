@@ -1,6 +1,5 @@
 import time
 import threading
-import numpy as np
 from enum import Enum
 import math
 from typing import List, Optional
@@ -53,8 +52,6 @@ class SoundGenerator:
         self.lock = threading.Lock()
         self.executor = ThreadPoolExecutor(max_workers=2)
         self.goal_point = Point(0.5, 0.5)
-        self.is_palm_up = False
-        
         
         try:
             self.output = mido.open_output(output_name)
@@ -73,18 +70,18 @@ class SoundGenerator:
         except Exception as e:
             logger.error(f"終了処理中にエラー: {e}")
 
-    def update_notes(self, new_notes: List[int]) -> None:
-        """再生中の音符を更新"""
-        with self.lock:
-            if self.current_notes == new_notes:
-                return
-
-            if self.current_notes:
-                self._stop_current_notes()
-
-            self.current_notes = new_notes
-            self._play_new_notes(new_notes)
-
+    def set_instrument(self, program: int) -> None:
+        """
+        MIDI音色を変更する
+        Args:
+            program: MIDI program number (0-127)
+        """
+        try:
+            self.output.send(Message('program_change', program=program))
+            logger.info(f"音色を変更: program={program}")
+        except Exception as e:
+            logger.error(f"音色の変更中にエラー: {e}")
+            
     def _play_new_notes(self, notes: List[int]) -> None:
         """新しい音符を再生"""
         try:
@@ -102,45 +99,20 @@ class SoundGenerator:
                 self.output.send(Message('note_off', note=note, velocity=self.volume))
         except Exception as e:
             logger.error(f"ノート停止中にエラー: {e}")
-    
-    def judge_palm_up(self, landmarks, handedness) -> bool:
-        """
-        手のひらの向きを計算
-        
-        手のひらの法線ベクトルを計算し、上向きかどうかを判定
-        landmark[0]: 手首
-        landmark[5, 9, 13, 17]: 指の付け根
-        """
-        try:
-            if_left = (handedness == "Left")
-            # 人差し指の付け根
-            point5 = np.array([landmarks.landmark[5].x,
-                                  landmarks.landmark[5].y])
-            # 小指の付け根
-            point17 = np.array([landmarks.landmark[17].x,
-                                  landmarks.landmark[17].y])          
-            
-            vector = point17 - point5
-            
-            if_up = (landmarks.landmark[8].x < landmarks.landmark[20].x) if if_left else (landmarks.landmark[8].x > landmarks.landmark[20].x )
-            
-            angle = np.degrees(np.arctan2(vector[1], vector[0]))
-            if_horizontal = (angle < 30) or (angle > 150)
-        
-            is_palm_up = if_horizontal and if_up # 閾値は調整可能
-            
-            return is_palm_up
-            
-        except Exception as e:
-            logger.error(f"手のひらの向き計算中にエラー: {e}")
-            return False
+             
+    def update_notes(self, new_notes: List[int]) -> None:
+        """再生中の音符を更新"""
+        with self.lock:
+            if self.current_notes == new_notes:
+                return
 
-    
-    def update_hand_orientation(self, landmarks, handedness) -> None:
-        """手の向きを更新"""
-        self.is_palm_up = self.judge_palm_up(landmarks, handedness)
+            if self.current_notes:
+                self._stop_current_notes()
+
+            self.current_notes = new_notes
+            self._play_new_notes(new_notes)
         
-    def should_play_consonant(self, hand_point: Point) -> bool:
+    def should_play_consonant(self, hand_point: Point, is_palm_up: bool) -> bool:
         """
         協和音を再生すべきかどうかを判定
         
@@ -150,19 +122,19 @@ class SoundGenerator:
         """
          
         dist_condition = hand_point.distance_to(self.goal_point) < 0.1
-        palm_condition = self.is_palm_up
+        palm_condition = is_palm_up
         
         return dist_condition and palm_condition
     
-    def new_notes(self, x: float, y: float) -> List[int]:
+    def new_notes(self, x: float, y: float, is_palm_up: bool=False) -> List[int]:
         """座標と手のひらの向きに基づいて新しい音符を生成"""
         current_point = Point(x, y)
         self.volume = 64
         
-        if self.should_play_consonant(current_point):
+        if self.should_play_consonant(current_point, is_palm_up):
             return self.current_scale.C_MAJOR.notes
         else:
-            if self.is_palm_up:
+            if is_palm_up:
                 self.volume = 100
             base_note = 60
             dist = current_point.distance_to(self.goal_point)
@@ -196,7 +168,9 @@ def test_sound_generator():
         if not output_names:
             raise ValueError("利用可能なMIDI出力デバイスが見つかりません")
         logger.info(f"利用可能なMIDI出力デバイス: {output_names}")
-        sound_gen = SoundGenerator(output_names[1])
+        sound_gen = SoundGenerator(output_names[0])
+        sound_gen.set_instrument(40)
+        time.sleep(2)
         
         logger.info("C Major スケールのテスト")
         sound_gen.set_scale(Scale.C_MAJOR)
