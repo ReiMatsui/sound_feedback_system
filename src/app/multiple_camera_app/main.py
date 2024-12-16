@@ -143,6 +143,9 @@ def main():
         
     except Exception as e:
         logger.exception(f"アプリケーションの起動に失敗{e}")
+        
+    finally: 
+        logger.info("アプリケーションを終了します")
 
 if __name__ == '__main__':
     main()

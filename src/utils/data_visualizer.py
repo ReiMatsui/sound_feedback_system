@@ -6,6 +6,9 @@ from pathlib import Path
 from loguru import logger
 
 class DataVisualizer:
+    """
+    各種データを可視化するクラス
+    """
     def __init__(self, session_dir: Path):
         self.session_dir = session_dir
     

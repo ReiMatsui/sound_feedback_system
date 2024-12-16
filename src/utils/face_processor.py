@@ -88,7 +88,7 @@ class FaceProcessor:
         except Exception as e:
             logger.exception(f"{e}:MediaPipe処理スレッドでエラーが発生")
         finally:
-            logger.info("顔MediaPipe処理スレッドを終了します")
+            logger.info("顔のMediaPipe処理スレッドを終了します")
     
     def process_face_landmarks(self, face_results):
         """

@@ -59,7 +59,7 @@ class DataRecorder:
                 df_hands['relative_time'] = df_hands['timestamp'] - df_hands['timestamp'].min()
                 df_hands.to_csv(self.session_dir / 'hand_trajectories.csv', index=False)
             
-            logger.info("すべてのデータを保存しました")
+            logger.info("csvデータを保存しました")
         except Exception as e:
             logger.error(f"データ保存中にエラー: {e}")
     
