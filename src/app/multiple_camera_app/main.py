@@ -31,8 +31,14 @@ class Application:
         self.hand_processor = HandProcessor(self.data_recorder)
         
         # 録画クライアントの初期化
-        self.face_video_recorder = VideoRecorder(session_dir=self.session_dir,video_name="face_tracking_video.mp4", width=640, height=360)
-        self.hand_video_recorder = VideoRecorder(session_dir=self.session_dir,video_name="hand_tracking_video.mp4", width=640, height=480)
+        self.face_video_recorder = VideoRecorder(session_dir=self.session_dir,
+                                                 video_name="face_tracking_video.mp4",
+                                                 width=self.face_camera_manager.width, 
+                                                 height=self.face_camera_manager.height)
+        self.hand_video_recorder = VideoRecorder(session_dir=self.session_dir,
+                                                 video_name="hand_tracking_video.mp4", 
+                                                 width=self.hand_camera_manager.width, 
+                                                 height=self.hand_camera_manager.height)
     
     def _create_session_dir(self):
         session_start_time = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -50,6 +56,7 @@ class Application:
             # 処理スレッドを開始
             self.face_processor.start()
             self.hand_processor.start()
+            self.hand_processor.sound_generator.set_duration(30)
             
             while (self.face_camera_manager.capture.isOpened() and
                    self.hand_camera_manager.capture.isOpened()):

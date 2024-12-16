@@ -6,11 +6,20 @@ class CameraManager:
     """
     カメラ映像を取得するクラス
     """
-    def __init__(self, camera_no: int = 0, width: int = 640, height: int = 360):
+    def __init__(self, camera_no: int = 0):
         self.capture = cv2.VideoCapture(camera_no)
-
-        self.capture.set(cv2.CAP_PROP_FRAME_WIDTH, width)
-        self.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+        
+        # 画質を低めに設定する
+        self.width = int(self.capture.get(cv2.CAP_PROP_FRAME_WIDTH) //2)
+        self.height = int(self.capture.get(cv2.CAP_PROP_FRAME_HEIGHT) //2)
+        
+        # 低い画質を指定する
+        self.capture.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
+        self.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
+        
+        # OpenCVが調整する場合があるので再取得
+        self.width = int(self.capture.get(cv2.CAP_PROP_FRAME_WIDTH))
+        self.height = int(self.capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
     def get_frames(self):
         self.ret, self.frame = self.capture.read()
