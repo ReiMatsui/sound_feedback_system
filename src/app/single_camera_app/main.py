@@ -1,505 +1,136 @@
+from datetime import datetime
+from pathlib import Path
 import cv2
-import mediapipe as mp
-import numpy as np
-import time
-import os
-import threading
 import queue
 from loguru import logger
-from src.utils.sound_generator import SoundGenerator
-from src.utils.garageband_handler import GarageBandHandler
-import pandas as pd
-from datetime import datetime
-import pathlib
-import matplotlib.pyplot as plt
-from matplotlib import animation
-from mpl_toolkits.mplot3d import Axes3D
+from src.utils.camera_manager import CameraManager
+from src.utils.data_recorder import DataRecorder
+from src.utils.face_processor import FaceProcessor
+from src.utils.hand_processor import HandProcessor
+from src.utils.video_recorder import VideoRecorder
 
-class HandFaceSoundTracker:
-    def __init__(self, camera_no: int = 0, width: int = 640, height: int = 360):
-        """
-        手のランドマーク、顔の向き追跡、音生成アプリケーションの初期化
-        """
-        os.environ['no_proxy'] = "*"
+class Application:
+    """
+    手の位置に応じて音を変換して伝える
+    顔向きデータ、手の位置データなどを取得
+    """
+    def __init__(self, camera_no: int =0):
         
-        # スレッド間通信用のキュー
-        self.frame_queue = queue.Queue(maxsize=10)  # フレームバッファ
-        self.result_queue = queue.Queue(maxsize=10)  # 処理結果バッファ
-        self.running = threading.Event()
-        self.running.set()
+        # 日時ごとのディレクトリ作成
+        self.session_dir = self._create_session_dir()
         
-        # MediaPipe設定
-        self.mp_drawing = mp.solutions.drawing_utils
-        self.mp_drawing_styles = mp.solutions.drawing_styles
-        self.mp_hands = mp.solutions.hands
-        self.mp_face_mesh = mp.solutions.face_mesh
+        # 手と顔の検出用カメラ初期化
+        self.camera_manager = CameraManager(camera_no=camera_no)
         
-        # カメラ設定
-        self.video_capture = cv2.VideoCapture(camera_no)
-        self.video_capture.set(cv2.CAP_PROP_FRAME_WIDTH, width)
-        self.video_capture.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+        # 顔向き、手の座標データcsv作成と可視化
+        self.data_recorder = DataRecorder(self.session_dir)
         
-        # 動画保存の設定
-        self.frame_width = int(self.video_capture.get(cv2.CAP_PROP_FRAME_WIDTH))
-        self.frame_height = int(self.video_capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        self.fps = 20.0  # フレームレートを下げて負荷を軽減
+        # mediapipeによる手と顔の画像処理
+        self.face_processor = FaceProcessor(self.data_recorder)
+        self.hand_processor = HandProcessor(self.data_recorder)
         
-        # 音ジェネレーター設定
-        try:
-            output_names = SoundGenerator.get_output_names()
-            self.sound_generator = SoundGenerator(output_name=output_names[0])
-        except Exception as e:
-            logger.exception("音ジェネレーターの初期化に失敗")
-            raise
-        
-        # データ保存用の設定
-        self.face_orientation_data = []
-        self.hand_trajectory_data = {}
-        
-        # セッション設定
-        self.session_start_time = datetime.now().strftime("%Y%m%d_%H%M%S")
-        self.base_output_dir = pathlib.Path("output")
-        self.session_dir = self.base_output_dir / self.session_start_time
-        self.session_dir.mkdir(parents=True, exist_ok=True)
-        
-        # 動画ライター初期化
-        video_path = str(self.session_dir / 'tracking_video.mp4')
-        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-        self.video_writer = cv2.VideoWriter(
-            video_path, 
-            fourcc, 
-            self.fps, 
-            (self.frame_width, self.frame_height)
-        )
-        
-        # 処理スレッド初期化
-        self.process_thread = threading.Thread(target=self._process_frames)
-        self.process_thread.daemon = True
-        
-        logger.info(f"セッションディレクトリを作成しました: {self.session_dir}")
-
-    def _calculate_face_orientation(self, landmarks):
-        """
-        顔の向き（yaw, pitch, roll）を計算
-        
-        Returns:
-            tuple: (yaw, pitch, roll) in degrees
-            - yaw: 左右の回転角度 (-: 左, +: 右)
-            - pitch: 上下の回転角度 (-: 上, +: 下)
-            - roll: 首の傾き (-: 左傾き, +: 右傾き)
-        """
-        try:
-            # 必要なランドマークのインデックス
-            # 鼻先
-            nose_tip = landmarks.landmark[4]
-            # 両目の外側と内側のポイント
-            left_eye_outer = landmarks.landmark[33]
-            left_eye_inner = landmarks.landmark[133]
-            right_eye_inner = landmarks.landmark[362]
-            right_eye_outer = landmarks.landmark[263]
-            
-            # Yawの計算 (左右の回転)
-            eye_center_x = (left_eye_outer.x + right_eye_outer.x) / 2
-            eye_distance = abs(left_eye_outer.x - right_eye_outer.x)
-            yaw = np.arctan2(nose_tip.x - eye_center_x, eye_distance) * 180 / np.pi
-            
-            # Pitchの計算 (上下の回転)
-            eye_center_y = (left_eye_outer.y + right_eye_outer.y) / 2
-            pitch = np.arctan2(nose_tip.y - eye_center_y, eye_distance) * 180 / np.pi
-            
-            # Rollの計算 (首の傾き)
-            # 両目の傾きから計算
-            dy = right_eye_outer.y - left_eye_outer.y
-            dx = right_eye_outer.x - left_eye_outer.x
-            roll = np.arctan2(dy, dx) * 180 / np.pi
-            
-            return yaw, pitch, roll
-            
-        except Exception as e:
-            logger.error(f"顔の向き計算中にエラー: {e}")
-            return 0, 0, 0
-
-    def _process_hand_data(self, landmarks, hand_id):
-        """
-        手のランドマークデータを処理
-        """
-        try:
-            landmark_9 = landmarks.landmark[9]
-            timestamp = time.time()
-            
-            if hand_id not in self.hand_trajectory_data:
-                self.hand_trajectory_data[hand_id] = {
-                    'timestamp': [],
-                    'x': [],
-                    'y': [],
-                    'z': []
-                }
-            
-            self.hand_trajectory_data[hand_id]['timestamp'].append(timestamp)
-            self.hand_trajectory_data[hand_id]['x'].append(landmark_9.x)
-            self.hand_trajectory_data[hand_id]['y'].append(landmark_9.y)
-            self.hand_trajectory_data[hand_id]['z'].append(landmark_9.z)
-        except Exception as e:
-            logger.error(f"手のデータ処理中にエラー: {e}")
-
-    def _process_frames(self):
-        """
-        別スレッドでMediaPipe処理を実行
-        """
-        try:
-            with self.mp_hands.Hands(
-                static_image_mode=False,
-                max_num_hands=2,
-                min_detection_confidence=0.5
-            ) as hands, self.mp_face_mesh.FaceMesh(
-                static_image_mode=False,
-                max_num_faces=1,
-                min_detection_confidence=0.5,
-                min_tracking_confidence=0.5
-            ) as face_mesh:
-                while self.running.is_set():
-                    try:
-                        frame = self.frame_queue.get(timeout=1.0)
-                        if frame is None:
-                            continue
-                        
-                        # フレームのコピーを作成
-                        frame_copy = frame.copy()
-                        
-                        # MediaPipe処理
-                        image_rgb = cv2.cvtColor(frame_copy, cv2.COLOR_BGR2RGB)
-                        hands_results = hands.process(image_rgb)
-                        face_results = face_mesh.process(image_rgb)
-                        
-                        # 結果をコピーして保存
-                        results = {
-                            'hands': {
-                                'multi_hand_landmarks': [
-                                    landmark.copy() if hasattr(landmark, 'copy') 
-                                    else landmark 
-                                    for landmark in (hands_results.multi_hand_landmarks or [])
-                                ],
-                                'handedness': hands_results.multi_handedness
-                            },
-                            'face': {
-                                'multi_face_landmarks': [
-                                    landmark.copy() if hasattr(landmark, 'copy') 
-                                    else landmark 
-                                    for landmark in (face_results.multi_face_landmarks or [])
-                                ] if face_results.multi_face_landmarks else None
-                            }
-                        }
-                        
-                        # 結果をキューに入れる
-                        self.result_queue.put((results, frame_copy))
-                        
-                    except queue.Empty:
-                        continue
-                    except Exception as e:
-                        logger.exception("フレーム処理中にエラーが発生")
-                        continue
-                        
-        except Exception as e:
-            logger.exception("MediaPipe処理スレッドでエラーが発生")
-        finally:
-            logger.info("MediaPipe処理スレッドを終了します")
-
-    def _create_face_orientation_plots(self):
-        """
-        顔の向きのグラフを作成して保存
-        """
-        if not self.face_orientation_data:
-            logger.warning("顔の向きデータがありません")
-            return
-            
-        try:
-            fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(12, 12))
-            
-            df = pd.DataFrame(self.face_orientation_data, 
-                             columns=['timestamp', 'yaw', 'pitch', 'roll'])
-            df['relative_time'] = df['timestamp'] - df['timestamp'].iloc[0]
-            
-            ax1.plot(df['relative_time'], df['yaw'], 'b-', linewidth=1)
-            ax1.set_title('Yaw (Left/Right) Over Time')
-            ax1.set_ylabel('Angle (degrees)')
-            ax1.grid(True)
-            
-            ax2.plot(df['relative_time'], df['pitch'], 'r-', linewidth=1)
-            ax2.set_title('Pitch (Up/Down) Over Time')
-            ax2.set_ylabel('Angle (degrees)')
-            ax2.grid(True)
-            
-            ax3.plot(df['relative_time'], df['roll'], 'g-', linewidth=1)
-            ax3.set_title('Roll (Head Tilt) Over Time')
-            ax3.set_xlabel('Time (seconds)')
-            ax3.set_ylabel('Angle (degrees)')
-            ax3.grid(True)
-            
-            plt.tight_layout()
-            
-            plot_path = self.session_dir / 'face_orientation_plot.png'
-            plt.savefig(plot_path, dpi=300, bbox_inches='tight')
-            plt.close(fig)
-            
-            logger.info(f"顔の向きグラフを保存しました: {plot_path}")
-        except Exception as e:
-            logger.error(f"グラフ作成中にエラー: {e}")
-
-    def _create_3d_trajectory_animation(self):
-        """
-        手の軌跡の3Dアニメーションを作成して保存
-        """
-        if not self.hand_trajectory_data:
-            logger.warning("手の軌跡データがありません")
-            return
-
-        try:
-            # データを単純な配列に変換
-            timestamps = []
-            x_coords = []
-            y_coords = []
-            z_coords = []
-            
-            for data in self.hand_trajectory_data.values():
-                timestamps.extend(data['timestamp'])
-                x_coords.extend(data['x'])
-                y_coords.extend(data['y'])
-                z_coords.extend(data['z'])
-
-            # データを時系列でソート
-            sorted_indices = np.argsort(timestamps)
-            x_coords = np.array(x_coords)[sorted_indices]
-            y_coords = np.array(y_coords)[sorted_indices]
-            z_coords = np.array(z_coords)[sorted_indices]
-            timestamps = np.array(timestamps)[sorted_indices]
-
-            # 3Dプロットの設定
-            fig = plt.figure(figsize=(12, 8))
-            ax = fig.add_subplot(111, projection='3d')
-
-            # プロット用のラインとポイントを作成
-            line = ax.plot([], [], [], 
-                        c='blue',
-                        alpha=0.5,
-                        linewidth=2)[0]
-            point = ax.plot([], [], [],
-                        'o',
-                        c='red',
-                        markersize=8)[0]
-
-            margin = 0.1
-            ax.set_xlim([min(x_coords) - margin, max(x_coords) + margin])
-            ax.set_ylim([min(y_coords) - margin, max(y_coords) + margin])
-            ax.set_zlim([min(z_coords) - margin, max(z_coords) + margin])
-            
-            ax.set_xlabel('X')
-            ax.set_ylabel('Y')
-            ax.set_zlabel('Z')
-            ax.set_title('Hand Trajectory (3D)')
-            ax.grid(True)
-            
-            trail_length = 30
-
-            def update(frame):
-                ax.view_init(elev=20, azim=frame)
-                
-                start_idx = max(0, frame - trail_length)
-                end_idx = frame + 1
-                
-                if end_idx > len(x_coords):
-                    end_idx = len(x_coords)
-                    start_idx = max(0, end_idx - trail_length)
-                
-                # 軌跡の更新
-                line.set_data(x_coords[start_idx:end_idx],
-                            y_coords[start_idx:end_idx])
-                line.set_3d_properties(z_coords[start_idx:end_idx])
-                
-                # 現在位置の点の更新
-                if end_idx > 0:
-                    point.set_data([x_coords[end_idx-1]], 
-                                [y_coords[end_idx-1]])
-                    point.set_3d_properties([z_coords[end_idx-1]])
-                
-                return line, point
-
-            # アニメーションの作成と保存
-            num_frames = len(timestamps)
-            ani = animation.FuncAnimation(fig, 
-                                        update,
-                                        frames=num_frames,
-                                        interval=50,
-                                        blit=True)
-
-            animation_path = self.session_dir / 'hand_trajectory_3d.mp4'
-            writer = animation.FFMpegWriter(fps=20,
-                                        metadata=dict(artist='HandTracker'),
-                                        bitrate=5000)
-            ani.save(str(animation_path), writer=writer)
-            
-            plt.close(fig)
-            logger.info(f"3Dアニメーションを保存しました: {animation_path}")
-        except Exception as e:
-            logger.error(f"3Dアニメーション作成中にエラー: {e}")
-
-    def _save_data(self):
-        """
-        すべてのデータをCSVファイルに保存
-        """
-        try:
-            # 顔の向きデータの保存
-            if self.face_orientation_data:
-                df_face = pd.DataFrame(self.face_orientation_data,
-                                    columns=['timestamp', 'yaw', 'pitch', 'roll'])
-                df_face['relative_time'] = df_face['timestamp'] - df_face['timestamp'].iloc[0]
-                df_face.to_csv(self.session_dir / 'face_orientation.csv', index=False)
-                
-            # 手の軌跡データの保存
-            if self.hand_trajectory_data:
-                dfs = []
-                for hand_id, data in self.hand_trajectory_data.items():
-                    df = pd.DataFrame(data)
-                    df['hand_id'] = hand_id
-                    dfs.append(df)
-                
-                df_hands = pd.concat(dfs, ignore_index=True)
-                df_hands['relative_time'] = df_hands['timestamp'] - df_hands['timestamp'].min()
-                df_hands.to_csv(self.session_dir / 'hand_trajectories.csv', index=False)
-            
-            logger.info("すべてのデータを保存しました")
-        except Exception as e:
-            logger.error(f"データ保存中にエラー: {e}")
-
+        # 録画クライアントの初期化
+        self.video_recorder = VideoRecorder(session_dir=self.session_dir,
+                                                 video_name="tracking_video.mp4",
+                                                 width=self.camera_manager.width, 
+                                                 height=self.camera_manager.height)
+    
+    def _create_session_dir(self):
+        session_start_time = datetime.now().strftime("%Y%m%d_%H%M%S")
+        session_dir = Path("output") / session_start_time
+        session_dir.mkdir(parents=True, exist_ok=True)
+        logger.info(f"セッションディレクトリを作成しました: {session_dir}")
+        return session_dir
+    
     def run(self):
-        """
+        """ 
         メインアプリケーションループ
         """
         cv2.startWindowThread()
         try:
             # 処理スレッドを開始
-            self.process_thread.start()
+            self.face_processor.start()
+            self.hand_processor.start()
             
-            while self.video_capture.isOpened() and self.running.is_set():
-                ret, frame = self.video_capture.read()
-                if not ret:
-                    break
+            while (self.camera_manager.capture.isOpened()):
                 
-                frame = cv2.flip(frame, 1)
+                # カメラからフレームを取得
+                frame = self.camera_manager.get_frames()
+
+                if frame is None:
+                    break
                 
                 # フレームを処理キューに追加
                 try:
-                    self.frame_queue.put(frame.copy(), timeout=0.1)
+                    self.face_processor.put_to_queue(frame.copy())
                 except queue.Full:
                     continue
-                
-                # 処理結果を取得
+
+                # 処理済みの結果を取得
                 try:
-                    results, processed_frame = self.result_queue.get(timeout=0.1)
+                    face_results, processed_face_frame = self.face_processor.get_from_queue()
                 except queue.Empty:
                     continue
-                
-                image = processed_frame.copy()
 
+                # フレームを処理キューに追加
+                try:
+                    self.hand_processor.put_to_queue(processed_face_frame.copy())
+                except queue.Full:
+                    continue
+
+                # 処理済みの結果を取得
+                try:
+                    hand_results, processed_frame = self.hand_processor.get_from_queue()
+                except queue.Empty:
+                    continue
+
+                processed_image = processed_frame.copy()
+                
                 # 手のランドマーク処理
-                if results['hands']['multi_hand_landmarks']:
-                    for i, landmarks in enumerate(results['hands']['multi_hand_landmarks']):
-                        try:
-                            self.mp_drawing.draw_landmarks(
-                                image,
-                                landmarks,
-                                self.mp_hands.HAND_CONNECTIONS,
-                                self.mp_drawing_styles.get_default_hand_landmarks_style(),
-                                self.mp_drawing_styles.get_default_hand_connections_style()
-                            )
-                            
-                            self._process_hand_data(landmarks, i)
-                            
-                            if i == 0:
-                                hand_x = landmarks.landmark[9].x
-                                hand_y = landmarks.landmark[9].y
-                                handedness = results['hands']['handedness'][0].classification[0].label
-                                
-                                # 手のひらの向きを更新
-                                self.sound_generator.update_hand_orientation(landmarks, handedness)
-                                
-                                new_notes = self.sound_generator.new_notes(hand_x, hand_y)
-                                self.sound_generator.update_notes(new_notes)
-                            
-                            # 手のひらの向きを画面に表示（デバッグ用）
-                            is_palm_up = self.sound_generator.is_palm_up
-                            cv2.putText(image, f'Palm up: {is_palm_up}', (10, 30),cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                if hand_results['multi_hand_landmarks']:
+                    self.hand_processor.process_hand_landmarks(processed_image, hand_results)
                 
-                        except Exception as e:
-                            logger.error(f"ハンドランドマーク処理中のエラー: {e}")
-                            continue
+                # 顔のランドマーク処理
+                if face_results['multi_face_landmarks']:
+                    self.face_processor.process_face_landmarks(processed_image, face_results)
+                    
+                # 手と顔のカメラ画面録画    
+                self.video_recorder.write_frames(processed_image)
                 
-                # 顔の向き処理
-                if results['face']['multi_face_landmarks']:
-                    try:
-                        face_landmarks = results['face']['multi_face_landmarks'][0]
-                        yaw, pitch, roll = self._calculate_face_orientation(face_landmarks)
-                        self.face_orientation_data.append([time.time(), yaw, pitch, roll])
-                        
-                        # 画面表示を更新
-                        # cv2.putText(image, f'Yaw: {yaw:.1f}', (10, 30), 
-                        #            cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-                        # cv2.putText(image, f'Pitch: {pitch:.1f}', (10, 70), 
-                        #            cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-                        # cv2.putText(image, f'Roll: {roll:.1f}', (10, 110), 
-                        #            cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-                    except Exception as e:
-                        logger.error(f"顔の向き処理中のエラー: {e}")
-                
-                try:
-                    self.video_writer.write(image)
-                    cv2.imshow('Hand and Face Tracking', image)
-                except Exception as e:
-                    logger.error(f"画像表示/保存中のエラー: {e}")
-                
-                if cv2.waitKey(3) == ord('q'):
+                # カメラからの処理済み映像を表示
+                self.camera_manager.imshow("Hand Tracking", processed_image)
+            
+                if cv2.waitKey(1) == ord('q'):
                     break
-        
+                
         except Exception as e:
-            logger.exception("メインループでエラーが発生")
-        
+            logger.exception(f"メインループでエラーが発生:{e}")
+                    
         finally:
-            # クリーンアップ
-            self.running.clear()
-            
-            # キューをクリア
-            while not self.frame_queue.empty():
-                try:
-                    self.frame_queue.get_nowait()
-                except queue.Empty:
-                    break
-            
-            while not self.result_queue.empty():
-                try:
-                    self.result_queue.get_nowait()
-                except queue.Empty:
-                    break
-            
-            self.process_thread.join(timeout=2.0)
-            self._save_data()
-            self._create_face_orientation_plots()
-            self._create_3d_trajectory_animation()
-            self.sound_generator.end()
-            
-            # OpenCVリソースの解放
-            if self.video_writer is not None:
-                self.video_writer.release()
-            cv2.waitKey(1)
-            if self.video_capture is not None:
-                self.video_capture.release()
-            cv2.waitKey(1)
-            cv2.destroyAllWindows()
-            
-            logger.info("アプリケーションを終了しました")
+            self.cleanup()
+            self.process_data()
+    
+    def cleanup(self):
+        # 別スレッドでのmediapipe処理を終了し、キューをクリア
+        self.face_processor.clean_up()
+        self.hand_processor.clean_up()
+        
+        # OpenCVリソースの解放
+        self.camera_manager.release()
+        self.video_recorder.release()
 
+        cv2.destroyAllWindows()
+        
+    def process_data(self):
+        # 各種データをcsvに保存
+        self.data_recorder.save_data()
+        # データを可視化
+        self.data_recorder.visualize_data()
+              
 def main():
     """
     アプリケーション起動
-    """
+    """    
     try:
         # ログの設定
         logger.add(
@@ -511,17 +142,15 @@ def main():
         )
         logger.info("アプリケーションを開始します")
         
-        # トラッカーの初期化と実行
-        tracker = HandFaceSoundTracker()
-        tracker.run()
+        # アプリケーションの初期化と実行
+        app = Application()
+        app.run()
         
     except Exception as e:
-        logger.exception("アプリケーションの起動に失敗")
-    
-    finally:
-        # 最終的なクリーンアップ
-        cv2.destroyAllWindows()
-        cv2.waitKey(1)  # ウィンドウを確実に閉じる
+        logger.exception(f"アプリケーションの起動に失敗{e}")
+        
+    finally: 
+        logger.info("アプリケーションを終了します")
 
 if __name__ == '__main__':
     main()
