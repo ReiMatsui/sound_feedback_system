@@ -47,7 +47,7 @@ class FaceProcessor:
     def put_to_queue(self, frame):
         self.face_frame_queue.put(frame, timeout=0.1)
 
-    def get_from_queue(self) -> Tuple[Any, np.ndarray):
+    def get_from_queue(self):
         face_results, processed_face_frame  = self.face_result_queue.get(timeout=0.1)
         return face_results, processed_face_frame 
 
