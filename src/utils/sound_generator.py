@@ -8,6 +8,7 @@ from loguru import logger
 from concurrent.futures import ThreadPoolExecutor
 import mido
 from mido import Message
+from src.models.timer import Timer
 
 @dataclass
 class Point:
@@ -53,16 +54,11 @@ class SoundGenerator:
         self.executor = ThreadPoolExecutor(max_workers=2)
         self.goal_point = Point(0.5, 0.5)
         
-        # タイマー関連の新しい属性
-        self.timer: Optional[threading.Timer] = None
-        self.changeable_timer: Optional[threading.Timer] = None
         self.is_active = True
         self.is_changeable = True
-        self.duration = float('inf')  # デフォルトは無制限
-        self.changeable_duration = float('inf')
-        self.start_time = None
-        self.start_changeable_time = None
-        
+        self.stop_timer: Optional[threading.Timer] = None
+        self.changeable_timer: Optional[threading.Timer] = None
+        self.reset_timer: Optional[threading.Timer] = None
         
         try:
             self.output = mido.open_output(output_name)
@@ -71,70 +67,43 @@ class SoundGenerator:
             logger.error(f"MIDI出力デバイスの初期化に失敗: {e}")
             raise RuntimeError("MIDI出力デバイスの初期化に失敗しました") from e
 
-    def set_duration(self, seconds: float) -> None:
-        """実験の制限時間を設定"""
+    def set_stop_timer(self, seconds:float):
         self.is_active = True
-        self.duration = seconds
-        self.start_time = time.time()
-        
-        # 既存のタイマーをキャンセル
-        if self.timer:
-            self.timer.cancel()
-        
-        # 新しいタイマーを設定
-        self.timer = threading.Timer(seconds, self.stop_sound)
-        self.timer.start()
-        logger.info(f"実験時間を {seconds} 秒に設定")
+        self.stop_timer = Timer(self.stop_sound)
+        self.stop_timer.set_duration(seconds)
 
+    def set_changeable_timer(self, seconds:float):
+        self.is_changeable = True
+        self.changeable_timer = Timer(self.stop_change_sound)
+        self.changeable_timer.set_duration(seconds)
+        
+    def set_reset_timer(self, seconds:float):
+        self.reset_timer = Timer(self.reset_error)
+        self.reset_timer.set_duration(seconds)
+        
     def stop_sound(self) -> None:
         """実験を停止し、全ての音を止める"""
         self.is_active = False
         self._stop_current_notes()
         logger.info("実験時間終了、音を停止")
-        
-    def get_remaining_time(self) -> float:
-        """残り時間を取得（秒）"""
-        if self.start_time is None:
-            return float('inf')
-        
-        elapsed = time.time() - self.start_time
-        remaining = max(0, self.duration - elapsed)
-        return remaining
-
-    def set_changeable_duration(self, seconds: float) -> None:
-        """実験の制限時間を設定"""
-        self.is_changeable = True
-        self.changeable_duration = seconds
-        self.start_changeable_time = time.time()
-        
-        # 既存のタイマーをキャンセル
-        if self.changeable_timer:
-            self.changeable_timer.cancel()
-        
-        # 新しいタイマーを設定
-        self.changeable_timer = threading.Timer(seconds, self.stop_change_sound)
-        self.changeable_timer.start()
-        logger.info(f"実験時間を {seconds} 秒に設定")
 
     def stop_change_sound(self) -> None:
         """実験を停止し、全ての音を止める"""
         self.is_changeable = False
         logger.info("実験時間終了、音を停止")
         
-    def get_changeable_time(self) -> float:
-        """残り時間を取得（秒）"""
-        if self.start_changeable_time is None:
-            return float('inf')
-        
-        elapsed = time.time() - self.start_changeable_time
-        remaining = max(0, self.changeable_duration - elapsed)
-        return remaining
+    def reset_error(self) -> None:
+        """音が出ない、変化しないなどのエラーを止める"""
+        self.is_active = True
+        self.is_changeable = True
+        logger.info("音による通知を再開")
 
     def end(self) -> None:
         """リソースの解放とクリーンアップ"""
         try:
-            if self.timer:
-                self.timer.cancel()
+            for timer in [self.stop_timer, self.changeable_timer, self.reset_error]:
+                if timer:
+                    timer.cancel()
             self.is_active = False
             self._stop_current_notes()
             self.executor.shutdown(wait=True)
@@ -247,22 +216,19 @@ def test_sound_generator():
         
         sound_gen = SoundGenerator(output_names[0])
         # 10秒の制限時間を設定
-        sound_gen.set_duration(2.0)
+        sound_gen.set_stop_timer(2.0)
         
         logger.info("C Major スケールのテスト")
         sound_gen.set_scale(Scale.C_MAJOR)
         sound_gen.update_notes(Scale.C_MAJOR.notes)
         time.sleep(2)
         
-        logger.info(f"残り時間: {sound_gen.get_remaining_time():.1f}秒")
         
         logger.info("A Minor スケールのテスト")
         sound_gen.set_scale(Scale.A_MINOR)
         sound_gen.update_notes(Scale.A_MINOR.notes)
         time.sleep(2)
-        
-        
-        logger.info(f"残り時間: {sound_gen.get_remaining_time():.1f}秒")
+    
         
         logger.info("不協和音のテスト")
         sound_gen.update_notes(Scale.DISSONANCE.notes)
@@ -275,7 +241,6 @@ def test_sound_generator():
                 notes = sound_gen.new_notes(x, y)
                 sound_gen.update_notes(notes)
                 time.sleep(1)
-                logger.info(f"残り時間: {sound_gen.get_remaining_time():.1f}秒")
         
     except Exception as e:
         logger.exception(f"テスト中にエラーが発生:{e}")

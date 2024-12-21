@@ -47,7 +47,9 @@ class Application:
         メインアプリケーションループ
         """
         cv2.startWindowThread()
-        self.hand_processor.sound_generator.set_changeable_duration(10)
+        self.hand_processor.sound_generator.set_stop_timer(10)
+        self.hand_processor.sound_generator.set_reset_timer(20)
+        
         try:
             # 処理スレッドを開始
             self.face_processor.start()
