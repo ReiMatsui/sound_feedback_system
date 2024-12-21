@@ -47,6 +47,7 @@ class Application:
         メインアプリケーションループ
         """
         cv2.startWindowThread()
+        self.hand_processor.sound_generator.set_changeable_duration(10)
         try:
             # 処理スレッドを開始
             self.face_processor.start()
@@ -66,13 +67,13 @@ class Application:
                 except queue.Full:
                     continue
 
-                # 処理済みの結果を取得
+                # 顔の処理済みの結果を取得
                 try:
                     face_results, processed_face_frame = self.face_processor.get_from_queue()
                 except queue.Empty:
                     continue
 
-                # フレームを処理キューに追加
+                # 顔の処理済みフレームを処理キューに追加
                 try:
                     self.hand_processor.put_to_queue(processed_face_frame.copy())
                 except queue.Full:

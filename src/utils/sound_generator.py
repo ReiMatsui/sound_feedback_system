@@ -55,9 +55,14 @@ class SoundGenerator:
         
         # タイマー関連の新しい属性
         self.timer: Optional[threading.Timer] = None
+        self.changeable_timer: Optional[threading.Timer] = None
         self.is_active = True
+        self.is_changeable = True
         self.duration = float('inf')  # デフォルトは無制限
+        self.changeable_duration = float('inf')
         self.start_time = None
+        self.start_changeable_time = None
+        
         
         try:
             self.output = mido.open_output(output_name)
@@ -77,16 +82,16 @@ class SoundGenerator:
             self.timer.cancel()
         
         # 新しいタイマーを設定
-        self.timer = threading.Timer(seconds, self.stop_experiment)
+        self.timer = threading.Timer(seconds, self.stop_sound)
         self.timer.start()
         logger.info(f"実験時間を {seconds} 秒に設定")
 
-    def stop_experiment(self) -> None:
+    def stop_sound(self) -> None:
         """実験を停止し、全ての音を止める"""
         self.is_active = False
         self._stop_current_notes()
         logger.info("実験時間終了、音を停止")
-
+        
     def get_remaining_time(self) -> float:
         """残り時間を取得（秒）"""
         if self.start_time is None:
@@ -94,6 +99,35 @@ class SoundGenerator:
         
         elapsed = time.time() - self.start_time
         remaining = max(0, self.duration - elapsed)
+        return remaining
+
+    def set_changeable_duration(self, seconds: float) -> None:
+        """実験の制限時間を設定"""
+        self.is_changeable = True
+        self.changeable_duration = seconds
+        self.start_changeable_time = time.time()
+        
+        # 既存のタイマーをキャンセル
+        if self.changeable_timer:
+            self.changeable_timer.cancel()
+        
+        # 新しいタイマーを設定
+        self.changeable_timer = threading.Timer(seconds, self.stop_change_sound)
+        self.changeable_timer.start()
+        logger.info(f"実験時間を {seconds} 秒に設定")
+
+    def stop_change_sound(self) -> None:
+        """実験を停止し、全ての音を止める"""
+        self.is_changeable = False
+        logger.info("実験時間終了、音を停止")
+        
+    def get_changeable_time(self) -> float:
+        """残り時間を取得（秒）"""
+        if self.start_changeable_time is None:
+            return float('inf')
+        
+        elapsed = time.time() - self.start_changeable_time
+        remaining = max(0, self.changeable_duration - elapsed)
         return remaining
 
     def end(self) -> None:
@@ -113,7 +147,6 @@ class SoundGenerator:
         """新しい音符を再生"""
         if not self.is_active:
             return
-            
         try:
             for note in notes:
                 self.output.send(Message('note_on', note=note, velocity=self.volume))
@@ -135,6 +168,11 @@ class SoundGenerator:
         """再生中の音符を更新"""
         if not self.is_active:
             return
+            
+        if not self.is_changeable:
+            with self.lock:
+                self._play_new_notes(self.current_notes)
+                return
             
         with self.lock:
             if self.current_notes == new_notes:

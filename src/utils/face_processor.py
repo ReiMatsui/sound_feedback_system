@@ -4,7 +4,6 @@ import cv2
 import threading 
 import queue
 from loguru import logger
-from typing import Tuple, Any
 from src.utils.data_recorder import DataRecorder
 
 class FaceProcessor:
