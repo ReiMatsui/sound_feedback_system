@@ -64,10 +64,7 @@ class Application:
                 
                 # フレームを処理キューに追加
                 try:
-                    if frame is not (None, None):
-                        self.face_processor.put_to_queue(frame.copy())
-                    else:
-                        continue
+                    self.face_processor.put_to_queue(frame.copy())
                 except queue.Full:
                     continue
 

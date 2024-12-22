@@ -14,12 +14,13 @@ from src.models.timer import Timer
 class Point:
     x: float
     y: float
-
+    z: float
+    
     def distance_to(self, other: 'Point') -> float:
         """
         別の点との距離を計算
         """
-        return math.sqrt((self.x - other.x) ** 2 + (self.y - other.y) ** 2)
+        return math.sqrt((self.x - other.x) ** 2 + (self.y - other.y) ** 2 + (self.z - other.z) ** 2)
 
 class Scale(Enum):
     """
@@ -52,7 +53,7 @@ class SoundGenerator:
         self.current_notes: Optional[List[int]] = None
         self.lock = threading.Lock()
         self.executor = ThreadPoolExecutor(max_workers=2)
-        self.goal_point = Point(0.5, 0.5)
+        self.goal_point = Point(0.5, 0.5, 0.5)
         
         self.is_active = True
         self.is_changeable = True
@@ -168,12 +169,12 @@ class SoundGenerator:
         palm_condition = is_palm_up
         return dist_condition and palm_condition
     
-    def new_notes(self, x: float, y: float, is_palm_up: bool=False) -> List[int]:
+    def new_notes(self, x: float, y: float, z: float, is_palm_up: bool=False) -> List[int]:
         """座標と手のひらの向きに基づいて新しい音符を生成"""
         if not self.is_active:
             return []
             
-        current_point = Point(x, y)
+        current_point = Point(x, y, z)
         self.volume = 64
         
         if self.should_play_consonant(current_point, is_palm_up):

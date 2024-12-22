@@ -28,16 +28,19 @@ class DataVisualizer:
             df['relative_time'] = df['timestamp'] - df['timestamp'].iloc[0]
             
             ax1.plot(df['relative_time'], df['yaw'], 'b-', linewidth=1)
+            ax1.axvline(x=10, color='red', linestyle='--', linewidth=1)  # 赤い縦線
             ax1.set_title('Yaw (Left/Right) Over Time')
             ax1.set_ylabel('Angle (degrees)')
             ax1.grid(True)
             
             ax2.plot(df['relative_time'], df['pitch'], 'r-', linewidth=1)
+            ax2.axvline(x=10, color='red', linestyle='--', linewidth=1)  # 赤い縦線
             ax2.set_title('Pitch (Up/Down) Over Time')
             ax2.set_ylabel('Angle (degrees)')
             ax2.grid(True)
             
             ax3.plot(df['relative_time'], df['roll'], 'g-', linewidth=1)
+            ax3.axvline(x=10, color='red', linestyle='--', linewidth=1)  # 赤い縦線
             ax3.set_title('Roll (Head Tilt) Over Time')
             ax3.set_xlabel('Time (seconds)')
             ax3.set_ylabel('Angle (degrees)')

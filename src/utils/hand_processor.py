@@ -162,17 +162,25 @@ class HandProcessor:
                 if i == 0 and self.sound_generator is not None:
                     hand_x = landmarks.landmark[9].x
                     hand_y = landmarks.landmark[9].y
+                    hand_z = landmarks.landmark[9].z
                     handedness = hand_results['handedness'][0].classification[0].label
                     
                     # 手のひらが上向きか判定
                     is_palm_up = self.judge_palm_up(landmarks, handedness)
   
-                    new_notes = self.sound_generator.new_notes(hand_x, hand_y, is_palm_up)
+                    new_notes = self.sound_generator.new_notes(hand_x, hand_y, hand_z, is_palm_up)
                     self.sound_generator.update_notes(new_notes)
                     
                     # Palm upの状態を表示
                     cv2.putText(image, f'Palm up: {is_palm_up}', 
                               (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                    # x,y,z座標を縦に表示
+                    cv2.putText(image, f'X: {hand_x:.2f}', 
+                                (10, 70), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                    cv2.putText(image, f'Y: {hand_y:.2f}', 
+                                (10, 110), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                    cv2.putText(image, f'Z: {hand_z:.2f}', 
+                                (10, 150), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
                     
         except Exception as e:
             logger.error(f"ハンドランドマーク処理中のエラー: {e}")
