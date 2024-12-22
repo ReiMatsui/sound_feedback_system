@@ -47,8 +47,7 @@ class Application:
         メインアプリケーションループ
         """
         cv2.startWindowThread()
-        self.hand_processor.sound_generator.set_stop_timer(10)
-        self.hand_processor.sound_generator.set_reset_timer(20)
+        self.hand_processor.sound_generator.set_stop_timer(10, 20)
         
         try:
             # 処理スレッドを開始
@@ -65,7 +64,10 @@ class Application:
                 
                 # フレームを処理キューに追加
                 try:
-                    self.face_processor.put_to_queue(frame.copy())
+                    if frame is not (None, None):
+                        self.face_processor.put_to_queue(frame.copy())
+                    else:
+                        continue
                 except queue.Full:
                     continue
 

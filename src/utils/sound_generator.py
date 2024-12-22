@@ -67,17 +67,17 @@ class SoundGenerator:
             logger.error(f"MIDI出力デバイスの初期化に失敗: {e}")
             raise RuntimeError("MIDI出力デバイスの初期化に失敗しました") from e
 
-    def set_stop_timer(self, seconds:float):
+    def set_stop_timer(self, start_seconds:float, end_seconds: float):
         self.is_active = True
-        self.stop_timer = Timer(self.stop_sound)
-        self.stop_timer.set_duration(seconds)
+        self.stop_timer = Timer(self.stop_sound, self.reset_error)
+        self.stop_timer.set_duration(start_seconds, end_seconds)
 
-    def set_changeable_timer(self, seconds:float):
+    def set_changeable_timer(self, start_seconds:float, end_seconds: float):
         self.is_changeable = True
-        self.changeable_timer = Timer(self.stop_change_sound)
-        self.changeable_timer.set_duration(seconds)
+        self.changeable_timer = Timer(self.stop_change_sound, self.reset_error)
+        self.changeable_timer.set_duration(start_seconds, end_seconds)
         
-    def set_reset_timer(self, seconds:float):
+    def set_reset_timer(self, seconds:float, end_seconds: float):
         self.reset_timer = Timer(self.reset_error)
         self.reset_timer.set_duration(seconds)
         
@@ -101,7 +101,7 @@ class SoundGenerator:
     def end(self) -> None:
         """リソースの解放とクリーンアップ"""
         try:
-            for timer in [self.stop_timer, self.changeable_timer, self.reset_error]:
+            for timer in [self.stop_timer, self.changeable_timer]:
                 if timer:
                     timer.cancel()
             self.is_active = False
