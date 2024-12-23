@@ -5,6 +5,7 @@ import threading
 import queue
 from loguru import logger
 from src.utils.data_recorder import DataRecorder
+from src.utils.sound_generator import SoundGenerator
 
 class FaceProcessor:
     """ 
@@ -101,7 +102,7 @@ class FaceProcessor:
         finally:
             logger.info("顔のMediaPipe処理スレッドを終了します")
     
-    def process_face_landmarks(self, face_image, face_results):
+    def process_face_landmarks(self, face_image, face_results, sound_generator: SoundGenerator):
         """
         顔の向き処理
         """
@@ -110,6 +111,8 @@ class FaceProcessor:
             # self.draw_landmarks(face_image, face_landmarks)
             yaw, pitch, roll = self.calculate_face_orientation(face_landmarks)
             self.data_recorder.record_face_orientation(yaw, pitch, roll)
+            cv2.putText(face_image, f'sound_on: {sound_generator.is_active}', 
+                (10, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
             
         except Exception as e:
             logger.error(f"顔の向き処理中のエラー: {e}")

@@ -53,7 +53,7 @@ class SoundGenerator:
         self.current_notes: Optional[List[int]] = None
         self.lock = threading.Lock()
         self.executor = ThreadPoolExecutor(max_workers=2)
-        self.goal_point = Point(0.5, 0.5, 0.5)
+        self.goal_point = Point(0.5, 0.5, 0.35)
         
         self.is_active = True
         self.is_changeable = True
@@ -165,7 +165,7 @@ class SoundGenerator:
         if not self.is_active:
             return False
             
-        dist_condition = hand_point.distance_to(self.goal_point) < 0.1
+        dist_condition = hand_point.distance_to(self.goal_point) < 0.15
         palm_condition = is_palm_up
         return dist_condition and palm_condition
     
@@ -184,7 +184,7 @@ class SoundGenerator:
                 self.volume = 100
             base_note = 60
             dist = current_point.distance_to(self.goal_point)
-            note_offset = min(int(dist * 20), 24)
+            note_offset = min(int(dist * 10), 24)
             return [base_note - note_offset]
 
     def set_scale(self, scale: Scale) -> None:

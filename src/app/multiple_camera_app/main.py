@@ -14,7 +14,7 @@ class Application:
     手の位置に応じて音を変換して伝える
     顔向きデータ、手の位置データなどを取得
     """
-    def __init__(self, face_camera_no: int = 0, hand_camera_no: int = 1):
+    def __init__(self, face_camera_no: int = 0, hand_camera_no: int = 2):
         
         # 日時ごとのディレクトリ作成
         self.session_dir = self._create_session_dir()
@@ -56,7 +56,7 @@ class Application:
             # 処理スレッドを開始
             self.face_processor.start()
             self.hand_processor.start()
-            self.hand_processor.sound_generator.set_duration(30)
+            self.hand_processor.sound_generator.set_stop_timer(10,15)
             
             while (self.face_camera_manager.capture.isOpened() and
                    self.hand_camera_manager.capture.isOpened()):
