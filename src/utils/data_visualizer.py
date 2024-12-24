@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 from matplotlib import animation
 from pathlib import Path
+from src.models.point import Point
 from loguru import logger
 
 class DataVisualizer:
@@ -152,3 +153,46 @@ class DataVisualizer:
             logger.info(f"3Dアニメーションを保存しました: {animation_path}")
         except Exception as e:
             logger.error(f"3Dアニメーション作成中にエラー: {e}")
+
+    def create_cumulative_distance(self, hand_trajectory_data):
+        if not hand_trajectory_data:
+            logger.warning("手の軌跡データがありません")
+        else:
+            try:
+                dfs = []
+                for hand_id, data in hand_trajectory_data.items():
+                    df = pd.DataFrame(data)
+                    df['hand_id'] = hand_id
+                    dfs.append(df)
+                
+                df_hands = pd.concat(dfs, ignore_index=True)
+                df_hands['relative_time'] = df_hands['timestamp'] - df_hands['timestamp'].min()
+
+                df_hands = df_hands[df_hands['hand_id'] == 0]
+
+                distances = [0]
+                for i in range(1, len(df_hands)):
+                    point_1 = Point(x = df_hands.iloc[i-1]['x'], y = df_hands.iloc[i-1]['y'], z = df_hands.iloc[i-1]['z'])
+                    point_2 = Point(x = df_hands.iloc[i]['x'], y = df_hands.iloc[i]['y'], z = df_hands.iloc[i]['z'])
+                    dist = point_1.distance_to(point_2)
+                    distances.append(distances[-1] + dist)
+                
+                df_hands['culmulative_distance'] = distances
+
+                plt.figure(figsize=(10, 6))
+                plt.axvline(x=30, color='red', linestyle='--', linewidth=1)
+                plt.plot(df_hands['relative_time'], df_hands['culmulative_distance'], marker='o', label='Cumulative Distance')
+                plt.title('Cumulative Distance Over Time', fontsize=14)
+                plt.xlabel('Relative Time (s)', fontsize=12)
+                plt.ylabel('Cumulative Distance', fontsize=12)
+                plt.grid(True)
+                plt.legend()
+
+                plot_path = self.session_dir / 'cumulative_distance_plot.png'
+                plt.savefig(plot_path, dpi=300, bbox_inches='tight')
+
+                
+                logger.info(f"手の移動距離のグラフを保存しました: {plot_path}")
+
+            except Exception as e:
+                logger.error(f"グラフ作成中にエラー: {e}")

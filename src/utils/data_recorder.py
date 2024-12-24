@@ -68,4 +68,5 @@ class DataRecorder:
         各種データを可視化して保存
         """
         self.data_visualizer.create_face_orientation_plots(self.face_orientation_data)
-        self.data_visualizer.create_3d_trajectory_animation(self.hand_trajectory_data)
+        self.data_visualizer.create_cumulative_distance(self.hand_trajectory_data)
+        # self.data_visualizer.create_3d_trajectory_animation(self.hand_trajectory_data)

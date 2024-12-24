@@ -3,24 +3,12 @@ import threading
 from enum import Enum
 import math
 from typing import List, Optional
-from dataclasses import dataclass
 from loguru import logger
 from concurrent.futures import ThreadPoolExecutor
 import mido
 from mido import Message
 from src.models.timer import Timer
-
-@dataclass
-class Point:
-    x: float
-    y: float
-    z: float
-    
-    def distance_to(self, other: 'Point') -> float:
-        """
-        別の点との距離を計算
-        """
-        return math.sqrt((self.x - other.x) ** 2 + (self.y - other.y) ** 2 + (self.z - other.z) ** 2)
+from src.models.point import Point
 
 class Scale(Enum):
     """

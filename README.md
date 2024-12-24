@@ -20,9 +20,14 @@ timidity -iA
 ### Macの場合
 * GarageBandでプロジェクトを起動しておく
 ### 実行
-* 顔と手を別のカメラで検出する場合 
+* 顔と手を3つのカメラで検出する場合 
 ``` 
-poetry run python src/app/multiple_camera_app/main.py
+poetry run python src/app/triple_camera_app/main.py
+```
+
+* 顔と手を2つのカメラで検出する場合 
+``` 
+poetry run python src/app/double_camera_app/main.py
 ```
 
 * 一つのカメラで検出する場合
