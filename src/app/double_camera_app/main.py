@@ -8,13 +8,15 @@ from src.utils.data_recorder import DataRecorder
 from src.utils.face_processor import FaceProcessor
 from src.utils.hand_processor import HandProcessor
 from src.utils.video_recorder import VideoRecorder
+from src.config import setting
 
 class Application:
     """
     手の位置に応じて音を変換して伝える
     顔向きデータ、手の位置データなどを取得
     """
-    def __init__(self, face_camera_no: int = 0, hand_camera_no: int = 2):
+    def __init__(self, face_camera_no: int = setting.face_camera_id, 
+                 hand_camera_no: int = setting.hand_camera_1_id):
         
         # 日時ごとのディレクトリ作成
         self.session_dir = self._create_session_dir()

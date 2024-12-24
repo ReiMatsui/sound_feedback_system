@@ -7,6 +7,7 @@ from loguru import logger
 from math import sqrt
 from src.utils.sound_generator import SoundGenerator
 from src.utils.data_recorder import DataRecorder
+from src.config import setting
 
 class HandProcessor:
     """ 
@@ -16,7 +17,8 @@ class HandProcessor:
         # 音ジェネレーター設定
         try:
             output_names = SoundGenerator.get_output_names()
-            self.sound_generator = SoundGenerator(output_name=output_names[-4])
+            port = setting.midi_output_port
+            self.sound_generator = SoundGenerator(output_name=output_names[port])
         except Exception as e:
             logger.exception(f"音ジェネレーターの初期化に失敗:{e}")
             raise

@@ -8,3 +8,4 @@ poetry.lock
 .idea/
 .DS_Store
 output/
+.env

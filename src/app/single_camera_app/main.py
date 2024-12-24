@@ -8,13 +8,14 @@ from src.utils.data_recorder import DataRecorder
 from src.utils.face_processor import FaceProcessor
 from src.utils.hand_processor import HandProcessor
 from src.utils.video_recorder import VideoRecorder
+from src.config import setting
 
 class Application:
     """
     手の位置に応じて音を変換して伝える
     顔向きデータ、手の位置データなどを取得
     """
-    def __init__(self, camera_no: int =0):
+    def __init__(self, camera_no: int = setting.face_camera_id):
         
         # 日時ごとのディレクトリ作成
         self.session_dir = self._create_session_dir()
@@ -155,4 +156,5 @@ def main():
         logger.info("アプリケーションを終了します")
 
 if __name__ == '__main__':
+    logger.info(setting)
     main()
