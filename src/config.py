@@ -1,6 +1,4 @@
 from pydantic_settings import BaseSettings
-from typing import Literal
-from pydantic import Field
 
 class Settings(BaseSettings):
     midi_output_port: int

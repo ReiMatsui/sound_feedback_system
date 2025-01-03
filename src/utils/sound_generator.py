@@ -42,14 +42,16 @@ class SoundGenerator:
         self.lock = threading.Lock()
         self.executor = ThreadPoolExecutor(max_workers=2)
         self.goal_point = Point(0.5, 0.5, 0)
+        self._thread = None
+        self.running = False
         
+        self.interval = 0.5
         self.is_active = True
         self.is_changeable = True
         self.is_rhythm = False
         self.stop_timer: Optional[threading.Timer] = None
         self.changeable_timer: Optional[threading.Timer] = None
         self.reset_timer: Optional[threading.Timer] = None
-        self.rhythm_timer: Optional[threading.Timer] = None
         
         try:
             self.output = mido.open_output(output_name)
@@ -58,30 +60,25 @@ class SoundGenerator:
             logger.error(f"MIDI出力デバイスの初期化に失敗: {e}")
             raise RuntimeError("MIDI出力デバイスの初期化に失敗しました") from e
 
-    def start_rhythm(self) -> None:
-        """リズムを開始"""
-        if self.is_rhythm:
-            return
-        self.is_rhythm = True
-        
-        if not self.is_active:
-            return
-        if self.current_notes is None:
-            return
-        self.play_rhythm()
-        
+    def _play_rhythm_loop(self) -> None:
+        while self.running:
+            self._play_new_notes(self.current_notes)
+            time.sleep(self.interval)
+            
     def play_rhythm(self) -> None:
-        """リズムにあわせて音を流す"""
-        self.rhythm_timer = Timer(on_timer_end=self._play_new_notes(self.current_notes), on_timer_reset=self.play_rhythm)
-        self.rhythm_timer.set_duration(2,2)
-
+        """別スレッドでリズムを再生"""
+        self.running = True
+        self._thread = threading.Thread(target=self._play_rhythm_loop, daemon=True)
+        self._thread.start()
+        logger.info("リズム再生スレッドを開始しました") 
+        
     def stop_rhythm(self) -> None:
-        """リズムを停止する"""
-        self.is_rhythm = False
-        self._stop_current_notes()
-        if self.rhythm_timer:
-            self.rhythm_timer.cancel()
-            self.rhythm_timer = None
+        """リズム再生を停止"""
+        if self._thread:
+            self.running = False
+            self._thread.join()
+            self._thread = None
+            logger.info("リズム再生スレッドを停止しました")
   
     def set_stop_timer(self, start_seconds:float, end_seconds: float):
         self.is_active = True
@@ -117,11 +114,12 @@ class SoundGenerator:
     def end(self) -> None:
         """リソースの解放とクリーンアップ"""
         try:
-            for timer in [self.stop_timer, self.changeable_timer, self.rhythm_timer]:
+            for timer in [self.stop_timer, self.changeable_timer]:
                 if timer:
                     timer.cancel()
             self.is_active = False
             self._stop_current_notes()
+            self.stop_rhythm()
             self.executor.shutdown(wait=True)
             self.output.close()
             logger.info("SoundGenerator終了処理完了")
@@ -165,8 +163,8 @@ class SoundGenerator:
             if self.current_notes == new_notes:
                 return
 
-            if self.current_notes:
-                self._stop_current_notes()
+            # if self.current_notes:
+            #     self._stop_current_notes()
 
             self.current_notes = new_notes
             # self._play_new_notes(new_notes)

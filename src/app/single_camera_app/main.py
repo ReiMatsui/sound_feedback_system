@@ -54,14 +54,14 @@ class Application:
             # 処理スレッドを開始
             self.face_processor.start()
             self.hand_processor.start()
-            
+            self.hand_processor.sound_generator.play_rhythm()
             while (self.camera_manager.capture.isOpened()):
                 
                 # カメラからフレームを取得
                 frame = self.camera_manager.get_frames()
 
                 if frame is None:
-                    break
+                    continue
                 
                 # フレームを処理キューに追加
                 try:
@@ -92,9 +92,10 @@ class Application:
                 # 手のランドマーク処理
                 if hand_results['multi_hand_landmarks']:
                     self.hand_processor.process_hand_landmarks(processed_image, hand_results)
-                    self.hand_processor.sound_generator.start_rhythm()
+                    # self.hand_processor.sound_generator.start_rhythm()
                 else:
-                    self.hand_processor.sound_generator.stop_rhythm()
+                    # self.hand_processor.sound_generator.stop_rhythm()
+                    self.hand_processor.sound_generator.current_notes = None
                 
                 # 顔のランドマーク処理
                 if face_results['multi_face_landmarks']:
