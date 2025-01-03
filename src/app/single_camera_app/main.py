@@ -48,7 +48,7 @@ class Application:
         メインアプリケーションループ
         """
         cv2.startWindowThread()
-        self.hand_processor.sound_generator.set_stop_timer(10, 20)
+        # self.hand_processor.sound_generator.set_stop_timer(10, 20)
         
         try:
             # 処理スレッドを開始
@@ -92,6 +92,9 @@ class Application:
                 # 手のランドマーク処理
                 if hand_results['multi_hand_landmarks']:
                     self.hand_processor.process_hand_landmarks(processed_image, hand_results)
+                    self.hand_processor.sound_generator.start_rhythm()
+                else:
+                    self.hand_processor.sound_generator.stop_rhythm()
                 
                 # 顔のランドマーク処理
                 if face_results['multi_face_landmarks']:

@@ -19,7 +19,7 @@ class Timer:
         self.on_timer_end = on_timer_end
         self.on_timer_reset = on_timer_reset
         
-    def set_duration(self, start_seconds: float, end_seconds: float) -> None:
+    def set_duration(self, start_seconds: float, end_seconds: float = 0) -> None:
         """実験の制限時間を設定"""
         self.duration = start_seconds
         self.reset_duration = end_seconds

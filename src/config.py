@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
 
-setting = Settings()  # pyright: ignore
+setting = Settings()  
 
 if __name__ == "__main__":
     print(setting.midi_output_port)
