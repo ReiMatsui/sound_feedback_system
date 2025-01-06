@@ -68,6 +68,7 @@ class Application:
             self.face_processor.start()
             self.hand_processor.start()
             self.hand_processor2.start()
+            self.hand_processor.sound_generator.play_rhythm()
             self.hand_processor.sound_generator.set_stop_timer(30,40)
             
             while (self.face_camera_manager.capture.isOpened() and
@@ -104,7 +105,9 @@ class Application:
                 
                 # 手のランドマーク処理
                 if hand_results['multi_hand_landmarks']:
-                    self.hand_processor.process_hand_landmarks2(hand_image, hand_results, hand_results2)
+                    self.hand_processor.process_hand_landmarks(hand_image, hand_results)
+                else:
+                    self.hand_processor.sound_generator.current_notes = None
 
                 # 手の縦方向ランドマーク処理
                 # if hand_results2['multi_hand_landmarks']:

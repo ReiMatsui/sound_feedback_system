@@ -114,6 +114,12 @@ class FaceProcessor:
             if sound_generator:
                 cv2.putText(face_image, f'sound_on: {sound_generator.is_active}', 
                     (10, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+                cv2.putText(face_image, f'yaw: {yaw:.2f}', 
+                    (10, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+                cv2.putText(face_image, f'pitch: {roll:.2f}', 
+                    (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+                cv2.putText(face_image, f'roll: {pitch:.2f}', 
+                    (10, 80), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
             
         except Exception as e:
             logger.error(f"顔の向き処理中のエラー: {e}")
