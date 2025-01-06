@@ -41,7 +41,7 @@ class SoundGenerator:
         self.current_notes: Optional[List[int]] = None
         self.lock = threading.Lock()
         self.executor = ThreadPoolExecutor(max_workers=2)
-        self.goal_point = Point(0.5, 0.5, 0)
+        self.goal_point = Point(0.2, 0.7, 0.2)
         self._thread = None
         self.running = False
         
@@ -197,10 +197,24 @@ class SoundGenerator:
         else:
             if is_palm_up:
                 self.volume = 100
-            base_note = 60
+            max_dist = math.sqrt(3)
+            base_note = 24
             dist = current_point.distance_to(self.goal_point)
-            note_offset = min(int(dist * 10), 24)
-            return [base_note - note_offset]
+            num_levels = 10
+            level = min(int((1 - min(dist/max_dist, 1)) * num_levels), num_levels - 1)
+            # note_offset = min(int(dist * 10), 24)
+
+            notes_by_level = [[(base_note + 6*i)] for i in range(num_levels)]
+            # notes_by_level = [
+            #     [base_note], 
+            #     [base_note + 7], 
+            #     [base_note + 12], 
+            #     [base_note + 19], 
+            #     [base_note + 24], 
+            #     [base_note + 31], 
+            # ]
+            logger.info(notes_by_level)
+            return notes_by_level[level]
 
     def set_scale(self, scale: Scale) -> None:
         """使用する音階を設定"""

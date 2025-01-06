@@ -69,7 +69,9 @@ class Application:
             self.hand_processor.start()
             self.hand_processor2.start()
             self.hand_processor.sound_generator.play_rhythm()
-            self.hand_processor.sound_generator.set_stop_timer(30,40)
+
+            # 開始後30秒から40秒まで音を停止
+            # self.hand_processor.sound_generator.set_stop_timer(30,40)
             
             while (self.face_camera_manager.capture.isOpened() and
                    self.hand_camera_manager.capture.isOpened() and
