@@ -92,9 +92,7 @@ class Application:
                 # 手のランドマーク処理
                 if hand_results['multi_hand_landmarks']:
                     self.hand_processor.process_hand_landmarks(processed_image, hand_results)
-                    # self.hand_processor.sound_generator.start_rhythm()
                 else:
-                    # self.hand_processor.sound_generator.stop_rhythm()
                     self.hand_processor.sound_generator.current_notes = None
                 
                 # 顔のランドマーク処理
