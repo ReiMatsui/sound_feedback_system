@@ -71,7 +71,7 @@ class Application:
             self.hand_processor.sound_generator.play_rhythm()
 
             # 開始後30秒から40秒まで音を停止
-            # self.hand_processor.sound_generator.set_stop_timer(30,40)
+            self.hand_processor.sound_generator.set_stop_timer(50,55)
             
             while (self.face_camera_manager.capture.isOpened() and
                    self.hand_camera_manager.capture.isOpened() and
@@ -107,7 +107,7 @@ class Application:
                 
                 # 手のランドマーク処理
                 if hand_results['multi_hand_landmarks']:
-                    self.hand_processor.process_hand_landmarks(hand_image, hand_results)
+                    self.hand_processor.process_hand_landmarks2(hand_image, hand_results, hand_results2)
                 else:
                     self.hand_processor.sound_generator.current_notes = None
 
@@ -125,8 +125,8 @@ class Application:
                 self.hand_video_recorder2.write_frames(hand_image2)
                 
                 # カメラからの処理済み映像を表示
-                self.face_camera_manager.imshow("Face Tracking", face_image)
-                self.hand_camera_manager.imshow("Hand Tracking", hand_image)
+                # self.face_camera_manager.imshow("Face Tracking", face_image)
+                # self.hand_camera_manager.imshow("Hand Tracking", hand_image)
                 # self.hand_camera2_manager.imshow("Hand Tracking2", hand_image2)
             
                 if cv2.waitKey(1) == ord('q'):

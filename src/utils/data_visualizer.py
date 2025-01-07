@@ -12,6 +12,7 @@ class DataVisualizer:
     """
     def __init__(self, session_dir: Path):
         self.session_dir = session_dir
+        self.stop_time = 50
     
     def create_face_orientation_plots(self, face_orientation_data):
         """
@@ -23,25 +24,24 @@ class DataVisualizer:
             
         try:
             fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(12, 12))
-            
             df = pd.DataFrame(face_orientation_data, 
                              columns=['timestamp', 'yaw', 'pitch', 'roll'])
             df['relative_time'] = df['timestamp'] - df['timestamp'].iloc[0]
             
             ax1.plot(df['relative_time'], df['yaw'], 'b-', linewidth=1)
-            ax1.axvline(x=10, color='red', linestyle='--', linewidth=1)  # 赤い縦線
+            ax1.axvline(x=self.stop_time, color='red', linestyle='--', linewidth=1)  # 赤い縦線
             ax1.set_title('Yaw (Left/Right) Over Time')
             ax1.set_ylabel('Angle (degrees)')
             ax1.grid(True)
             
             ax2.plot(df['relative_time'], df['pitch'], 'r-', linewidth=1)
-            ax2.axvline(x=10, color='red', linestyle='--', linewidth=1)  # 赤い縦線
+            ax2.axvline(x=self.stop_time, color='red', linestyle='--', linewidth=1)  # 赤い縦線
             ax2.set_title('Pitch (Up/Down) Over Time')
             ax2.set_ylabel('Angle (degrees)')
             ax2.grid(True)
             
             ax3.plot(df['relative_time'], df['roll'], 'g-', linewidth=1)
-            ax3.axvline(x=10, color='red', linestyle='--', linewidth=1)  # 赤い縦線
+            ax3.axvline(x=self.stop_time, color='red', linestyle='--', linewidth=1)  # 赤い縦線
             ax3.set_title('Roll (Head Tilt) Over Time')
             ax3.set_xlabel('Time (seconds)')
             ax3.set_ylabel('Angle (degrees)')
@@ -180,7 +180,7 @@ class DataVisualizer:
                 df_hands['culmulative_distance'] = distances
 
                 plt.figure(figsize=(10, 6))
-                plt.axvline(x=30, color='red', linestyle='--', linewidth=1)
+                plt.axvline(x=self.stop_time, color='red', linestyle='--', linewidth=1)
                 plt.plot(df_hands['relative_time'], df_hands['culmulative_distance'], marker='o', label='Cumulative Distance')
                 plt.title('Cumulative Distance Over Time', fontsize=14)
                 plt.xlabel('Relative Time (s)', fontsize=12)

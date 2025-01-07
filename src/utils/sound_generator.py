@@ -41,11 +41,16 @@ class SoundGenerator:
         self.current_notes: Optional[List[int]] = None
         self.lock = threading.Lock()
         self.executor = ThreadPoolExecutor(max_workers=2)
-        self.goal_point = Point(0.2, 0.7, 0.2)
+
+
+        # デモンストレーション用
+        self.goal_point = Point(0.5, 0.5, 0.65)
+        self.goal_point = Point(0.2, 0.3, 0.4)
+
         self._thread = None
         self.running = False
         
-        self.interval = 0.5
+        self.interval = 0.3
         self.is_active = True
         self.is_changeable = True
         self.is_rhythm = False
@@ -98,18 +103,18 @@ class SoundGenerator:
         """実験を停止し、全ての音を止める"""
         self.is_active = False
         self._stop_current_notes()
-        logger.info("実験時間終了、音を停止")
+        # logger.info("実験時間終了、音を停止")
 
     def stop_change_sound(self) -> None:
         """実験を停止し、全ての音を止める"""
         self.is_changeable = False
-        logger.info("実験時間終了、音を停止")
+        # logger.info("実験時間終了、音を停止")
         
     def reset_error(self) -> None:
         """音が出ない、変化しないなどのエラーを止める"""
         self.is_active = True
         self.is_changeable = True
-        logger.info("音による通知を再開")
+        # logger.info("音による通知を再開")
 
     def end(self) -> None:
         """リソースの解放とクリーンアップ"""
@@ -180,7 +185,7 @@ class SoundGenerator:
         if not self.is_active:
             return False
             
-        dist_condition = hand_point.distance_to(self.goal_point) < 0.15
+        dist_condition = hand_point.distance_to(self.goal_point) < 0.1
         palm_condition = is_palm_up
         return dist_condition and palm_condition
     
@@ -198,9 +203,9 @@ class SoundGenerator:
             if is_palm_up:
                 self.volume = 100
             max_dist = math.sqrt(3)
-            base_note = 24
+            base_note = 0
             dist = current_point.distance_to(self.goal_point)
-            num_levels = 10
+            num_levels = 14
             level = min(int((1 - min(dist/max_dist, 1)) * num_levels), num_levels - 1)
             # note_offset = min(int(dist * 10), 24)
 
@@ -213,7 +218,6 @@ class SoundGenerator:
             #     [base_note + 24], 
             #     [base_note + 31], 
             # ]
-            logger.info(notes_by_level)
             return notes_by_level[level]
 
     def set_scale(self, scale: Scale) -> None:
