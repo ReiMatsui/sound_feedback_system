@@ -60,7 +60,9 @@ class Application:
                 # カメラからフレームを取得
                 frame = self.camera_manager.get_frames()
 
-                if frame is None:
+                # frame の型を確認して適切に分岐
+                if isinstance(frame, tuple) and frame == (None, None):
+                    logger.warning("取得したフレームが (None, None) のため、処理をスキップしました。")
                     continue
                 
                 # フレームを処理キューに追加

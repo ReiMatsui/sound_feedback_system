@@ -113,8 +113,8 @@ class FaceProcessor:
             
             self.data_recorder.record_face_orientation(yaw, pitch, roll)
             
-            if len(self.data_recorder.face_orientation_data) > 1:
-                diff = abs(self.data_recorder.face_orientation_data[-2][-3] - self.data_recorder.face_orientation_data[-1][-3])
+            if len(self.data_recorder.face_orientation_data) > 150:
+                diff = abs(self.data_recorder.face_orientation_data[-2][-150] - self.data_recorder.face_orientation_data[-1][-3])
                 logger.info(diff)
             
             if sound_generator:

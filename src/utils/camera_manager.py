@@ -19,6 +19,10 @@ class CameraManager:
         # OpenCVが調整する場合があるので再取得
         self.width = int(self.capture.get(cv2.CAP_PROP_FRAME_WIDTH))
         self.height = int(self.capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        
+        # FPSを取得
+        self.fps = self.capture.get(cv2.CAP_PROP_FPS)
+        logger.info(f"カメラのFPS: {self.fps}")
 
     def get_frames(self):
         self.ret, self.frame = self.capture.read()
