@@ -90,14 +90,14 @@ class DataVisualizer:
             ax = fig.add_subplot(111, projection='3d')
 
             # プロット用のラインとポイントを作成
-            line = ax.plot([], [], [], 
-                        c='blue',
-                        alpha=0.5,
-                        linewidth=2)[0]
+            full_line = ax.plot([], [], [], 
+                                c='blue',
+                                alpha=0.7,
+                                linewidth=2)[0]
             point = ax.plot([], [], [],
-                        'o',
-                        c='red',
-                        markersize=8)[0]
+                            'o',
+                            c='red',
+                            markersize=8)[0]
 
             margin = 0.1
             ax.set_xlim([min(x_coords) - margin, max(x_coords) + margin])
@@ -109,31 +109,23 @@ class DataVisualizer:
             ax.set_zlabel('Z')
             ax.set_title('Hand Trajectory (3D)')
             ax.grid(True)
-            
-            trail_length = 30
+
+            # 固定された視点
+            ax.view_init(elev=20, azim=45)
 
             def update(frame):
-                ax.view_init(elev=20, azim=frame)
-                
-                start_idx = max(0, frame - trail_length)
-                end_idx = frame + 1
-                
-                if end_idx > len(x_coords):
-                    end_idx = len(x_coords)
-                    start_idx = max(0, end_idx - trail_length)
-                
-                # 軌跡の更新
-                line.set_data(x_coords[start_idx:end_idx],
-                            y_coords[start_idx:end_idx])
-                line.set_3d_properties(z_coords[start_idx:end_idx])
+                # 軌跡全体の更新
+                full_line.set_data(x_coords[:frame + 1],
+                                y_coords[:frame + 1])
+                full_line.set_3d_properties(z_coords[:frame + 1])
                 
                 # 現在位置の点の更新
-                if end_idx > 0:
-                    point.set_data([x_coords[end_idx-1]], 
-                                [y_coords[end_idx-1]])
-                    point.set_3d_properties([z_coords[end_idx-1]])
+                if frame < len(x_coords):
+                    point.set_data([x_coords[frame]], 
+                                [y_coords[frame]])
+                    point.set_3d_properties([z_coords[frame]])
                 
-                return line, point
+                return full_line, point
 
             # アニメーションの作成と保存
             num_frames = len(timestamps)
@@ -145,8 +137,8 @@ class DataVisualizer:
 
             animation_path = self.session_dir / 'hand_trajectory_3d.mp4'
             writer = animation.FFMpegWriter(fps=20,
-                                        metadata=dict(artist='HandTracker'),
-                                        bitrate=5000)
+                                            metadata=dict(artist='HandTracker'),
+                                            bitrate=5000)
             ani.save(str(animation_path), writer=writer)
             
             plt.close(fig)
