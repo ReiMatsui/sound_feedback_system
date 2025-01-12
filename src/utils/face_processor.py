@@ -113,10 +113,13 @@ class FaceProcessor:
             
             self.data_recorder.record_face_orientation(yaw, pitch, roll)
             
-            if len(self.data_recorder.face_orientation_data) > 150:
-                diff = abs(self.data_recorder.face_orientation_data[-150][-3] - self.data_recorder.face_orientation_data[-1][-3])
-                logger.info(diff)
-            
+            diff = 0
+            if len(self.data_recorder.face_orientation_data) > 30:
+                diff = abs(self.data_recorder.face_orientation_data[-30][-3] - self.data_recorder.face_orientation_data[-1][-3])
+
+            if diff > 15:
+                self.data_recorder.record_face_image(face_image)
+                
             if sound_generator:
                 cv2.putText(face_image, f'sound_on: {sound_generator.is_active}', 
                     (10, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)

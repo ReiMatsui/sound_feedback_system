@@ -125,8 +125,8 @@ class Application:
                 self.hand_video_recorder2.write_frames(hand_image2)
                 
                 # カメラからの処理済み映像を表示
-                # self.face_camera_manager.imshow("Face Tracking", face_image)
-                # self.hand_camera_manager.imshow("Hand Tracking", hand_image)
+                self.face_camera_manager.imshow("Face Tracking", face_image)
+                self.hand_camera_manager.imshow("Hand Tracking", hand_image)
                 # self.hand_camera2_manager.imshow("Hand Tracking2", hand_image2)
             
                 if cv2.waitKey(1) == ord('q'):
