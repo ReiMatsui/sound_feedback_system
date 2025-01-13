@@ -198,6 +198,7 @@ class SoundGenerator:
         self.volume = 64
         
         if self.should_play_consonant(current_point, is_palm_up):
+            self.volume = 110
             return self.current_scale.C_MAJOR.notes
         else:
             if is_palm_up:
@@ -249,9 +250,6 @@ def test_sound_generator():
         logger.info(f"利用可能なMIDI出力デバイス: {output_names}")
         
         sound_gen = SoundGenerator(output_names[0])
-        # 10秒の制限時間を設定
-        sound_gen.set_stop_timer(2.0)
-        
         logger.info("C Major スケールのテスト")
         sound_gen.set_scale(Scale.C_MAJOR)
         sound_gen.update_notes(Scale.C_MAJOR.notes)
@@ -259,7 +257,6 @@ def test_sound_generator():
         
         
         logger.info("A Minor スケールのテスト")
-        sound_gen.set_scale(Scale.A_MINOR)
         sound_gen.update_notes(Scale.A_MINOR.notes)
         time.sleep(2)
     

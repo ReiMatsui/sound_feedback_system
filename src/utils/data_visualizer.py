@@ -12,7 +12,7 @@ class DataVisualizer:
     """
     def __init__(self, session_dir: Path):
         self.session_dir = session_dir
-        self.stop_time = 50
+        self.stop_time = 40
     
     def create_face_orientation_plots(self, face_orientation_data):
         """
@@ -111,7 +111,7 @@ class DataVisualizer:
             ax.grid(True)
 
             # 固定された視点
-            ax.view_init(elev=20, azim=45)
+            ax.view_init(elev=270, azim=90)
 
             def update(frame):
                 # 軌跡全体の更新
@@ -188,3 +188,54 @@ class DataVisualizer:
 
             except Exception as e:
                 logger.error(f"グラフ作成中にエラー: {e}")
+
+
+    def create_hand_speed_plot(self, hand_trajectory_data):
+        if not hand_trajectory_data:
+            logger.warning("手の軌跡データがありません")
+        else:
+            try:
+                dfs = []
+                for hand_id, data in hand_trajectory_data.items():
+                    df = pd.DataFrame(data)
+                    df['hand_id'] = hand_id
+                    dfs.append(df)
+                
+                df_hands = pd.concat(dfs, ignore_index=True)
+                df_hands['relative_time'] = df_hands['timestamp'] - df_hands['timestamp'].min()
+
+                # hand_id == 0 のデータを抽出
+                df_hands = df_hands[df_hands['hand_id'] == 0]
+
+                speeds = [0]  # 最初の速度は 0 とする
+                for i in range(1, len(df_hands)):
+                    point_1 = Point(x=df_hands.iloc[i-1]['x'], y=df_hands.iloc[i-1]['y'], z=df_hands.iloc[i-1]['z'])
+                    point_2 = Point(x=df_hands.iloc[i]['x'], y=df_hands.iloc[i]['y'], z=df_hands.iloc[i]['z'])
+                    dist = point_1.distance_to(point_2)
+                    time_diff = df_hands.iloc[i]['relative_time'] - df_hands.iloc[i-1]['relative_time']
+                    speed = dist / time_diff if time_diff != 0 else 0
+                    speeds.append(speed)
+                
+                df_hands['speed'] = speeds
+
+                # グラフの作成
+                plt.figure(figsize=(10, 6))
+                plt.axvline(x=self.stop_time, color='red', linestyle='--', linewidth=1)
+                plt.plot(df_hands['relative_time'], df_hands['speed'], label='Hand Speed')
+                plt.title('Hand Speed Over Time', fontsize=14)
+                plt.xlabel('Relative Time (s)', fontsize=12)
+                plt.ylabel('Speed (units/s)', fontsize=12)
+                plt.grid(True)
+                plt.legend()
+
+                plot_path = self.session_dir / 'hand_speed_plot.png'
+                plt.savefig(plot_path, dpi=300, bbox_inches='tight')
+
+                logger.info(f"手の速度のグラフを保存しました: {plot_path}")
+
+            except Exception as e:
+                logger.error(f"グラフ作成中にエラー: {e}")
+
+if __name__ == "__main__":
+    file_path = ""
+    df = pd.read_csv(file_path)

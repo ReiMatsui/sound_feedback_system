@@ -113,11 +113,14 @@ class FaceProcessor:
             
             self.data_recorder.record_face_orientation(yaw, pitch, roll)
             
-            diff = 0
+            diff= [0, 0, 0]
             if len(self.data_recorder.face_orientation_data) > 30:
-                diff = abs(self.data_recorder.face_orientation_data[-30][-3] - self.data_recorder.face_orientation_data[-1][-3])
+                diff[0] = abs(self.data_recorder.face_orientation_data[-30][-3] - self.data_recorder.face_orientation_data[-1][-3])
+                diff[1] = abs(self.data_recorder.face_orientation_data[-30][-3] - self.data_recorder.face_orientation_data[-1][-3])
+                diff[2] = abs(self.data_recorder.face_orientation_data[-30][-3] - self.data_recorder.face_orientation_data[-1][-3])
 
-            if diff > 15:
+
+            if max(diff) > 15:
                 self.data_recorder.record_face_image(face_image)
                 
             if sound_generator:

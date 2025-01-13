@@ -70,8 +70,8 @@ class Application:
             self.hand_processor2.start()
             self.hand_processor.sound_generator.play_rhythm()
 
-            # 開始後30秒から40秒まで音を停止
-            self.hand_processor.sound_generator.set_stop_timer(50,55)
+            # 開始後30秒から40秒まで音を停止+
+            self.hand_processor.sound_generator.set_stop_timer(40,50)
             
             while (self.face_camera_manager.capture.isOpened() and
                    self.hand_camera_manager.capture.isOpened() and
@@ -124,8 +124,10 @@ class Application:
                 self.hand_video_recorder.write_frames(hand_image)
                 self.hand_video_recorder2.write_frames(hand_image2)
                 
-                # カメラからの処理済み映像を表示
-                self.face_camera_manager.imshow("Face Tracking", face_image)
+                # カメラの処理済み映像を表示
+                # 実験時はコメントアウト
+
+                # self.face_camera_manager.imshow("Face Tracking", face_image)
                 self.hand_camera_manager.imshow("Hand Tracking", hand_image)
                 # self.hand_camera2_manager.imshow("Hand Tracking2", hand_image2)
             

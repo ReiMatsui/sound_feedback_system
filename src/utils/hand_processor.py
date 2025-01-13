@@ -198,6 +198,7 @@ class HandProcessor:
             for i, landmarks in enumerate(hand_results['multi_hand_landmarks']):
                 if hand_results2['multi_hand_landmarks']:
                     hand_z = hand_results2['multi_hand_landmarks'][0].landmark[9].x
+                    hand_z = max((0.7-hand_z)*2, 0)
                 else:
                     hand_z =0.5
                 # ランドマークの描画
