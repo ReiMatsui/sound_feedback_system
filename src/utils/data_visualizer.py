@@ -117,23 +117,27 @@ class DataVisualizer:
             ax.view_init(elev=270, azim=90)
 
             def update(frame):
-                # 軌跡全体の更新
-                color = 'blue' if is_palm_up[frame] else 'red'
+                ax.clear()  # 各フレームで描画をクリアして再描画
+                ax.set_xlim([min(x_coords) - margin, max(x_coords) + margin])
+                ax.set_ylim([min(y_coords) - margin, max(y_coords) + margin])
+                ax.set_zlim([min(z_coords) - margin, max(z_coords) + margin])
+                ax.set_xlabel('X')
+                ax.set_ylabel('Y')
+                ax.set_zlabel('Z')
+                ax.set_title('Hand Trajectory (3D)')
+                ax.grid(True)
                 
-                # 線の色を変更
-                full_line.set_color(color)
+                # 軌跡のセグメントごとに描画
+                for i in range(frame):
+                    color = 'blue' if is_palm_up[i] else 'red'
+                    ax.plot(x_coords[i:i+2], y_coords[i:i+2], z_coords[i:i+2], c=color, linewidth=2)
 
-                full_line.set_data(x_coords[:frame + 1],
-                                y_coords[:frame + 1])
-                full_line.set_3d_properties(z_coords[:frame + 1])
-                
-                # 現在位置の点の更新
+                # 現在のポイントを描画
                 if frame < len(x_coords):
-                    point.set_data([x_coords[frame]], 
-                                [y_coords[frame]])
-                    point.set_3d_properties([z_coords[frame]])
-                
-                return full_line, point
+                    ax.plot([x_coords[frame]], [y_coords[frame]], [z_coords[frame]], 'o', c='green', markersize=8)
+
+                return ax,
+
 
             # アニメーションの作成と保存
             num_frames = len(timestamps)
