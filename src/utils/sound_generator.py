@@ -9,6 +9,7 @@ import mido
 from mido import Message
 from src.models.timer import Timer
 from src.models.point import Point
+from src.config import setting
 
 class Scale(Enum):
     """
@@ -39,13 +40,15 @@ class SoundGenerator:
         self.volume = 64
         self.current_scale = Scale.C_MAJOR
         self.current_notes: Optional[List[int]] = None
+        self.keep_notes: Optional[List[int]] = None
+
         self.lock = threading.Lock()
         self.executor = ThreadPoolExecutor(max_workers=2)
 
 
         # デモンストレーション用
-        self.goal_point = Point(0.5, 0.5, 0.65)
-        # self.goal_point = Point(0.2, 0.2, 0.4)
+        self.goal_point = Point(0.5, 0.5, 0.1)
+        self.goal_point = Point(0.6, 0.7, 0.3)
 
         self._thread = None
         self.running = False
@@ -108,13 +111,14 @@ class SoundGenerator:
     def stop_change_sound(self) -> None:
         """実験を停止し、全ての音を止める"""
         self.is_changeable = False
+        self.keep_notes = self.current_notes
         # logger.info("実験時間終了、音を停止")
         
     def reset_error(self) -> None:
         """音が出ない、変化しないなどのエラーを止める"""
         self.is_active = True
         self.is_changeable = True
-        # logger.info("音による通知を再開")
+        logger.info("音による通知を再開")
 
     def end(self) -> None:
         """リソースの解放とクリーンアップ"""
@@ -160,9 +164,8 @@ class SoundGenerator:
             return
             
         if not self.is_changeable:
-            with self.lock:
-                self._play_new_notes(self.current_notes)
-                return
+            self.current_notes = self.keep_notes
+            return
             
         with self.lock:
             if self.current_notes == new_notes:
@@ -198,7 +201,7 @@ class SoundGenerator:
         self.volume = 64
         
         if self.should_play_consonant(current_point, is_palm_up):
-            self.volume = 110
+            self.volume = 90
             return self.current_scale.C_MAJOR.notes
         else:
             if is_palm_up:
@@ -249,29 +252,12 @@ def test_sound_generator():
             raise ValueError("利用可能なMIDI出力デバイスが見つかりません")
         logger.info(f"利用可能なMIDI出力デバイス: {output_names}")
         
-        sound_gen = SoundGenerator(output_names[0])
+        sound_gen = SoundGenerator(output_names[setting.midi_output_port])
         logger.info("C Major スケールのテスト")
-        sound_gen.set_scale(Scale.C_MAJOR)
-        sound_gen.update_notes(Scale.C_MAJOR.notes)
-        time.sleep(2)
-        
-        
-        logger.info("A Minor スケールのテスト")
-        sound_gen.update_notes(Scale.A_MINOR.notes)
+        sound_gen.set_volume(100)
+        sound_gen._play_new_notes(Scale.C_MAJOR.notes)
         time.sleep(2)
     
-        
-        logger.info("不協和音のテスト")
-        sound_gen.update_notes(Scale.DISSONANCE.notes)
-        time.sleep(2)
-        
-        logger.info("座標ベースの音生成テスト")
-        test_coordinates = [(0.5, 0.5), (0.2, 0.8), (0.8, 0.2)]
-        for x, y in test_coordinates:
-            if sound_gen.is_active:  # 時間切れでないことを確認
-                notes = sound_gen.new_notes(x, y)
-                sound_gen.update_notes(notes)
-                time.sleep(1)
         
     except Exception as e:
         logger.exception(f"テスト中にエラーが発生:{e}")
