@@ -40,12 +40,12 @@ class DataRecorder:
         self.face_image_data.append([relative_time, face_image])
     
     
-    def record_hand_trajectory(self, landmarks, hand_id):
+    def record_hand_trajectory(self, landmarks, hand_id, is_palm_up: bool = False):
         """ 
         手の位置を辞書に保存
         """
         if hand_id not in self.hand_trajectory_data:
-            self.hand_trajectory_data[hand_id] = {'timestamp': [], 'x': [], 'y': [], 'z': []}
+            self.hand_trajectory_data[hand_id] = {'timestamp': [], 'x': [], 'y': [], 'z': [], 'is_palm_up': []}
         
         landmark_9 = landmarks.landmark[9]
         timestamp = time.time()
@@ -54,7 +54,8 @@ class DataRecorder:
         self.hand_trajectory_data[hand_id]['x'].append(landmark_9.x)
         self.hand_trajectory_data[hand_id]['y'].append(landmark_9.y)
         self.hand_trajectory_data[hand_id]['z'].append(landmark_9.z)
-    
+        self.hand_trajectory_data[hand_id]['is_palm_up'].append(is_palm_up)
+
     def save_data(self):
         """
         すべてのデータをCSVファイルに保存

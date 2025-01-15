@@ -71,18 +71,21 @@ class DataVisualizer:
             x_coords = []
             y_coords = []
             z_coords = []
+            is_palm_up = []
             
             for data in hand_trajectory_data.values():
                 timestamps.extend(data['timestamp'])
                 x_coords.extend(data['x'])
                 y_coords.extend(data['y'])
                 z_coords.extend(data['z'])
+                is_palm_up.extend(data['is_palm_up'])
 
             # データを時系列でソート
             sorted_indices = np.argsort(timestamps)
             x_coords = np.array(x_coords)[sorted_indices]
             y_coords = np.array(y_coords)[sorted_indices]
             z_coords = np.array(z_coords)[sorted_indices]
+            is_palm_up = np.array(is_palm_up)[sorted_indices]
             timestamps = np.array(timestamps)[sorted_indices]
 
             # 3Dプロットの設定
@@ -115,6 +118,11 @@ class DataVisualizer:
 
             def update(frame):
                 # 軌跡全体の更新
+                color = 'blue' if is_palm_up[frame] else 'red'
+                
+                # 線の色を変更
+                full_line.set_color(color)
+
                 full_line.set_data(x_coords[:frame + 1],
                                 y_coords[:frame + 1])
                 full_line.set_3d_properties(z_coords[:frame + 1])

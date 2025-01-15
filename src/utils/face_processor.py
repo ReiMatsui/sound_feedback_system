@@ -124,14 +124,16 @@ class FaceProcessor:
                 self.data_recorder.record_face_image(face_image)
                 
             if sound_generator:
-                cv2.putText(face_image, f'sound_on: {sound_generator.is_active}', 
-                    (10, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
                 cv2.putText(face_image, f'yaw: {yaw:.2f}', 
-                    (10, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+                    (10, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
                 cv2.putText(face_image, f'pitch: {pitch:.2f}', 
-                    (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+                    (10, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
                 cv2.putText(face_image, f'roll: {roll:.2f}', 
+                    (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+                cv2.putText(face_image, f'sound_on: {sound_generator.is_active}', 
                     (10, 80), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+                cv2.putText(face_image, f'sound_changeable: {sound_generator.is_changeable}', 
+                    (10, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
             
         except Exception as e:
             logger.error(f"顔の向き処理中のエラー: {e}")
