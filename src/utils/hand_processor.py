@@ -158,9 +158,6 @@ class HandProcessor:
                 # ランドマークの描画
                 self.draw_landmarks(image, landmarks)
                 
-                # 手の位置データ保存
-                self.data_recorder.record_hand_trajectory(landmarks, i)
-                
                 # サウンドジェネレーターの更新（最初の手のみ）
                 if i == 0 and self.sound_generator is not None:
                     hand_x = landmarks.landmark[9].x
@@ -172,6 +169,9 @@ class HandProcessor:
                     
                     # 手のひらが上向きか判定
                     is_palm_up = self.judge_palm_up(landmarks, handedness)
+
+                    # 手の位置データ保存
+                    self.data_recorder.record_hand_trajectory(landmarks, i, is_palm_up)
   
                     new_notes = self.sound_generator.new_notes(hand_x, hand_y, hand_z, is_palm_up)
                     self.sound_generator.update_notes(new_notes)
