@@ -56,10 +56,12 @@ class DataVisualizer:
             logger.info(f"顔の向きグラフを保存しました: {plot_path}")
         except Exception as e:
             logger.error(f"グラフ作成中にエラー: {e}")
-    
+
+
     def create_3d_trajectory_animation(self, hand_trajectory_data):
         """
         手の軌跡の3Dアニメーションを作成して保存
+        palm upの状態に応じて軌跡の色を変更
         """
         if not hand_trajectory_data:
             logger.warning("手の軌跡データがありません")
@@ -92,15 +94,15 @@ class DataVisualizer:
             fig = plt.figure(figsize=(12, 8))
             ax = fig.add_subplot(111, projection='3d')
 
-            # プロット用のラインとポイントを作成
-            full_line = ax.plot([], [], [], 
-                                c='blue',
-                                alpha=0.7,
-                                linewidth=2)[0]
+            # palm upとpalm downの軌跡を別々に保存するためのリスト
+            palm_up_lines = []
+            palm_down_lines = []
+            
+            # 現在の点を表示するためのプロット
             point = ax.plot([], [], [],
-                            'o',
-                            c='red',
-                            markersize=8)[0]
+                          'o',
+                          c='red',
+                          markersize=8)[0]
 
             margin = 0.1
             ax.set_xlim([min(x_coords) - margin, max(x_coords) + margin])
@@ -117,27 +119,68 @@ class DataVisualizer:
             ax.view_init(elev=270, azim=90)
 
             def update(frame):
-                ax.clear()  # 各フレームで描画をクリアして再描画
-                ax.set_xlim([min(x_coords) - margin, max(x_coords) + margin])
-                ax.set_ylim([min(y_coords) - margin, max(y_coords) + margin])
-                ax.set_zlim([min(z_coords) - margin, max(z_coords) + margin])
-                ax.set_xlabel('X')
-                ax.set_ylabel('Y')
-                ax.set_zlabel('Z')
-                ax.set_title('Hand Trajectory (3D)')
-                ax.grid(True)
+                # 以前のラインをクリア
+                for line in palm_up_lines + palm_down_lines:
+                    line.remove()
+                palm_up_lines.clear()
+                palm_down_lines.clear()
                 
-                # 軌跡のセグメントごとに描画
-                for i in range(frame):
-                    color = 'blue' if is_palm_up[i] else 'red'
-                    ax.plot(x_coords[i:i+2], y_coords[i:i+2], z_coords[i:i+2], c=color, linewidth=2)
-
-                # 現在のポイントを描画
+                # フレームまでのデータを分割して描画
+                current_palm_up_x = []
+                current_palm_up_y = []
+                current_palm_up_z = []
+                current_palm_down_x = []
+                current_palm_down_y = []
+                current_palm_down_z = []
+                
+                for i in range(frame + 1):
+                    if i > 0:
+                        if is_palm_up[i]:
+                            if not current_palm_up_x:  # 新しいセグメントの開始
+                                current_palm_up_x.extend([x_coords[i-1], x_coords[i]])
+                                current_palm_up_y.extend([y_coords[i-1], y_coords[i]])
+                                current_palm_up_z.extend([z_coords[i-1], z_coords[i]])
+                            else:  # 既存のセグメントに追加
+                                current_palm_up_x.append(x_coords[i])
+                                current_palm_up_y.append(y_coords[i])
+                                current_palm_up_z.append(z_coords[i])
+                        else:
+                            if not current_palm_down_x:  # 新しいセグメントの開始
+                                current_palm_down_x.extend([x_coords[i-1], x_coords[i]])
+                                current_palm_down_y.extend([y_coords[i-1], y_coords[i]])
+                                current_palm_down_z.extend([z_coords[i-1], z_coords[i]])
+                            else:  # 既存のセグメントに追加
+                                current_palm_down_x.append(x_coords[i])
+                                current_palm_down_y.append(y_coords[i])
+                                current_palm_down_z.append(z_coords[i])
+                
+                # palm upの軌跡を青色で描画
+                if current_palm_up_x:
+                    line_up = ax.plot(current_palm_up_x, 
+                                    current_palm_up_y, 
+                                    current_palm_up_z,
+                                    c='blue',
+                                    alpha=0.7,
+                                    linewidth=2)[0]
+                    palm_up_lines.append(line_up)
+                
+                # palm downの軌跡を赤色で描画
+                if current_palm_down_x:
+                    line_down = ax.plot(current_palm_down_x,
+                                      current_palm_down_y,
+                                      current_palm_down_z,
+                                      c='red',
+                                      alpha=0.7,
+                                      linewidth=2)[0]
+                    palm_down_lines.append(line_down)
+                
+                # 現在位置の点を更新
                 if frame < len(x_coords):
-                    ax.plot([x_coords[frame]], [y_coords[frame]], [z_coords[frame]], 'o', c='green', markersize=8)
-
-                return ax,
-
+                    point.set_data([x_coords[frame]], 
+                                 [y_coords[frame]])
+                    point.set_3d_properties([z_coords[frame]])
+                
+                return palm_up_lines + palm_down_lines + [point]
 
             # アニメーションの作成と保存
             num_frames = len(timestamps)
@@ -149,8 +192,8 @@ class DataVisualizer:
 
             animation_path = self.session_dir / 'hand_trajectory_3d.mp4'
             writer = animation.FFMpegWriter(fps=20,
-                                            metadata=dict(artist='HandTracker'),
-                                            bitrate=5000)
+                                          metadata=dict(artist='HandTracker'),
+                                          bitrate=5000)
             ani.save(str(animation_path), writer=writer)
             
             plt.close(fig)
