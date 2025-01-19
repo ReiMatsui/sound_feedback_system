@@ -103,3 +103,4 @@ class DataRecorder:
         self.data_visualizer.create_cumulative_distance(self.hand_trajectory_data)
         self.data_visualizer.create_hand_speed_plot(self.hand_trajectory_data)
         self.data_visualizer.create_3d_trajectory_animation(self.hand_trajectory_data)
+        self.data_visualizer.plot_trajectory_variance(self.hand_trajectory_data)

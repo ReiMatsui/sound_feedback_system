@@ -362,6 +362,92 @@ class DataVisualizer:
             except Exception as e:
                 logger.error(f"グラフ作成中にエラー: {e}")
 
+    def plot_trajectory_variance(hand_trajectory_data, window_size=30, save_path="variance_plot"):
+        """
+        手の軌跡データの分散を計算してグラフ化する関数
+        
+        Parameters:
+        -----------
+        hand_trajectory_data : dict
+            手の軌跡データを含む辞書
+        window_size : int
+            分散を計算する際のウィンドウサイズ（デフォルト: 30フレーム）
+        save_path : str or Path, optional
+            グラフを保存するパス。Noneの場合は保存しない
+        """
+        try:
+            # データの準備
+            timestamps = []
+            x_coords = []
+            y_coords = []
+            
+            for data in hand_trajectory_data.values():
+                timestamps.extend(data['timestamp'])
+                x_coords.extend(data['x'])
+                y_coords.extend(data['y'])
+
+            # データを時系列でソート
+            sorted_indices = np.argsort(timestamps)
+            timestamps = np.array(timestamps)[sorted_indices]
+            x_coords = np.array(x_coords)[sorted_indices]
+            y_coords = np.array(y_coords)[sorted_indices]
+
+            # 分散を計算
+            x_variances = []
+            y_variances = []
+            
+            for i in range(len(timestamps)):
+                start_idx = max(0, i - window_size + 1)
+                window_x = x_coords[start_idx:i+1]
+                window_y = y_coords[start_idx:i+1]
+                
+                if len(window_x) > 0:
+                    x_variances.append(np.var(window_x))
+                    y_variances.append(np.var(window_y))
+                else:
+                    x_variances.append(0.0)
+                    y_variances.append(0.0)
+
+            # グラフの作成
+            fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 8), sharex=True)
+            
+            # X座標の分散プロット
+            ax1.plot(timestamps, x_variances, 'b-', label='X Variance', linewidth=2)
+            ax1.set_title('X Coordinate Variance', fontsize=14)
+            ax1.set_ylabel('Variance', fontsize=12)
+            ax1.grid(True)
+            ax1.legend(fontsize=10)
+            
+            # Y座標の分散プロット
+            ax2.plot(timestamps, y_variances, 'r-', label='Y Variance', linewidth=2)
+            ax2.set_title('Y Coordinate Variance', fontsize=14)
+            ax2.set_xlabel('Time (seconds)', fontsize=12)
+            ax2.set_ylabel('Variance', fontsize=12)
+            ax2.grid(True)
+            ax2.legend(fontsize=10)
+
+            # レイアウトの調整
+            plt.tight_layout()
+            
+            # 統計情報の表示
+            stats_text = (
+                f'Statistics (window size: {window_size} frames)\n'
+                f'X Variance - Mean: {np.mean(x_variances):.6f}, Max: {np.max(x_variances):.6f}\n'
+                f'Y Variance - Mean: {np.mean(y_variances):.6f}, Max: {np.max(y_variances):.6f}'
+            )
+            fig.text(0.02, 0.02, stats_text, fontsize=10, transform=fig.transFigure)
+
+            # グラフの保存
+            if save_path:
+                plt.savefig(save_path, dpi=300, bbox_inches='tight')
+                plt.close()
+                logger.info(f"分散グラフを保存しました: {save_path}")
+                
+            return x_variances, y_variances, timestamps
+
+        except Exception as e:
+            logger.error(f"分散グラフの作成中にエラー: {e}")
+            return None, None, None
 if __name__ == "__main__":
     file_path = ""
     df = pd.read_csv(file_path)
