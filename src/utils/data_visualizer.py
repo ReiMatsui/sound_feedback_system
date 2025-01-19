@@ -61,7 +61,7 @@ class DataVisualizer:
     def create_3d_trajectory_animation(self, hand_trajectory_data):
         """
         手の軌跡の3Dアニメーションを作成して保存
-        palm upの状態に応じて軌跡の色を変更
+        palm upの状態に応じて軌跡の色を変更し、アニメーション外に情報を表示
         """
         if not hand_trajectory_data:
             logger.warning("手の軌跡データがありません")
@@ -90,19 +90,30 @@ class DataVisualizer:
             is_palm_up = np.array(is_palm_up)[sorted_indices]
             timestamps = np.array(timestamps)[sorted_indices]
 
-            # 3Dプロットの設定
-            fig = plt.figure(figsize=(12, 8))
-            ax = fig.add_subplot(111, projection='3d')
+            # figureとグリッドの設定
+            fig = plt.figure(figsize=(15, 10))
+            gs = fig.add_gridspec(1, 2, width_ratios=[3, 1])  # 3:1の比率でスペースを分割
 
-            # palm upとpalm downの軌跡を別々に保存するためのリスト
+            # 3Dプロット用のサブプロット
+            ax = fig.add_subplot(gs[0], projection='3d')
+            
+            # テキスト表示用のサブプロット
+            text_ax = fig.add_subplot(gs[1])
+            text_ax.axis('off')  # 軸を非表示に
+
+            # テキストオブジェクトを作成（テキスト表示用のサブプロットに配置）
+            time_text = text_ax.text(0.05, 0.9, '', transform=text_ax.transAxes)
+            palm_state_text = text_ax.text(0.05, 0.8, '', transform=text_ax.transAxes)
+            coord_text = text_ax.text(0.05, 0.7, '', transform=text_ax.transAxes)
+            
+            # 凡例用のテキスト
+            text_ax.text(0.05, 0.4, 'Color Legend:', transform=text_ax.transAxes, fontweight='bold')
+            text_ax.text(0.05, 0.3, 'Blue: Palm Up', transform=text_ax.transAxes, color='blue')
+            text_ax.text(0.05, 0.2, 'Red: Palm Down', transform=text_ax.transAxes, color='red')
+
             palm_up_lines = []
             palm_down_lines = []
-            
-            # 現在の点を表示するためのプロット
-            point = ax.plot([], [], [],
-                          'o',
-                          c='red',
-                          markersize=8)[0]
+            point = ax.plot([], [], [], 'o', c='red', markersize=8)[0]
 
             margin = 0.1
             ax.set_xlim([min(x_coords) - margin, max(x_coords) + margin])
@@ -114,8 +125,6 @@ class DataVisualizer:
             ax.set_zlabel('Z')
             ax.set_title('Hand Trajectory (3D)')
             ax.grid(True)
-
-            # 固定された視点
             ax.view_init(elev=270, azim=90)
 
             def update(frame):
@@ -136,20 +145,20 @@ class DataVisualizer:
                 for i in range(frame + 1):
                     if i > 0:
                         if is_palm_up[i]:
-                            if not current_palm_up_x:  # 新しいセグメントの開始
+                            if not current_palm_up_x:
                                 current_palm_up_x.extend([x_coords[i-1], x_coords[i]])
                                 current_palm_up_y.extend([y_coords[i-1], y_coords[i]])
                                 current_palm_up_z.extend([z_coords[i-1], z_coords[i]])
-                            else:  # 既存のセグメントに追加
+                            else:
                                 current_palm_up_x.append(x_coords[i])
                                 current_palm_up_y.append(y_coords[i])
                                 current_palm_up_z.append(z_coords[i])
                         else:
-                            if not current_palm_down_x:  # 新しいセグメントの開始
+                            if not current_palm_down_x:
                                 current_palm_down_x.extend([x_coords[i-1], x_coords[i]])
                                 current_palm_down_y.extend([y_coords[i-1], y_coords[i]])
                                 current_palm_down_z.extend([z_coords[i-1], z_coords[i]])
-                            else:  # 既存のセグメントに追加
+                            else:
                                 current_palm_down_x.append(x_coords[i])
                                 current_palm_down_y.append(y_coords[i])
                                 current_palm_down_z.append(z_coords[i])
@@ -167,20 +176,24 @@ class DataVisualizer:
                 # palm downの軌跡を赤色で描画
                 if current_palm_down_x:
                     line_down = ax.plot(current_palm_down_x,
-                                      current_palm_down_y,
-                                      current_palm_down_z,
-                                      c='red',
-                                      alpha=0.7,
-                                      linewidth=2)[0]
+                                    current_palm_down_y,
+                                    current_palm_down_z,
+                                    c='red',
+                                    alpha=0.7,
+                                    linewidth=2)[0]
                     palm_down_lines.append(line_down)
                 
-                # 現在位置の点を更新
+                # 現在位置の点と情報を更新
                 if frame < len(x_coords):
-                    point.set_data([x_coords[frame]], 
-                                 [y_coords[frame]])
+                    point.set_data([x_coords[frame]], [y_coords[frame]])
                     point.set_3d_properties([z_coords[frame]])
+                    
+                    # テキスト情報を更新
+                    time_text.set_text(f'Time: {timestamps[frame]:.2f} sec')
+                    palm_state_text.set_text(f'Palm State: {"UP" if is_palm_up[frame] else "DOWN"}')
+                    coord_text.set_text(f'Position:\nX: {x_coords[frame]:.2f}\nY: {y_coords[frame]:.2f}\nZ: {z_coords[frame]:.2f}')
                 
-                return palm_up_lines + palm_down_lines + [point]
+                return palm_up_lines + palm_down_lines + [point, time_text, palm_state_text, coord_text]
 
             # アニメーションの作成と保存
             num_frames = len(timestamps)
@@ -192,8 +205,8 @@ class DataVisualizer:
 
             animation_path = self.session_dir / 'hand_trajectory_3d.mp4'
             writer = animation.FFMpegWriter(fps=20,
-                                          metadata=dict(artist='HandTracker'),
-                                          bitrate=5000)
+                                        metadata=dict(artist='HandTracker'),
+                                        bitrate=5000)
             ani.save(str(animation_path), writer=writer)
             
             plt.close(fig)
