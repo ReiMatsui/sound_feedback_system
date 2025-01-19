@@ -69,10 +69,6 @@ class Application:
             self.hand_processor.start()
             self.hand_processor2.start()
             self.hand_processor.sound_generator.play_rhythm()
-
-            # 開始後30秒から40秒まで音を停止
-            # self.hand_processor.sound_generator.set_stop_timer(40,50)
-            self.hand_processor.sound_generator.set_changeable_timer(30,40)
             
             while (self.face_camera_manager.capture.isOpened() and
                    self.hand_camera_manager.capture.isOpened() and
@@ -129,7 +125,7 @@ class Application:
                 # 実験時はコメントアウト
 
                 # self.face_camera_manager.imshow("Face Tracking", face_image)
-                # self.hand_camera_manager.imshow("Hand Tracking", hand_image)
+                self.hand_camera_manager.imshow("Hand Tracking", hand_image)
                 # self.hand_camera2_manager.imshow("Hand Tracking2", hand_image2)
             
                 if cv2.waitKey(1) == ord('q'):

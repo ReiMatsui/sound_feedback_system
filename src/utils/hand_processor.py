@@ -83,15 +83,7 @@ class HandProcessor:
             point17 = np.array([landmarks.landmark[17].x,
                                   landmarks.landmark[17].y])          
             
-            vector = point17 - point5
-            
-            if_up = (landmarks.landmark[8].x < landmarks.landmark[20].x) if if_left else (landmarks.landmark[8].x > landmarks.landmark[20].x )
-            
-            angle = np.degrees(np.arctan2(vector[1], vector[0]))
-            if_horizontal = (angle < 30) or (angle > 150)
-        
-            is_palm_up = if_horizontal and if_up # 閾値は調整可能
-            
+            is_palm_up = (landmarks.landmark[8].x < landmarks.landmark[20].x) if if_left else (landmarks.landmark[8].x > landmarks.landmark[20].x )
             return is_palm_up
             
         except Exception as e:
