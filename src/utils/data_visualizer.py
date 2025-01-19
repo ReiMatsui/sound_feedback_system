@@ -61,7 +61,7 @@ class DataVisualizer:
     def create_3d_trajectory_animation(self, hand_trajectory_data):
         """
         手の軌跡の3Dアニメーションを作成して保存
-        palm upの状態に応じて軌跡の色を変更し、アニメーション外に情報を表示
+        palm upの状態に応じて軌跡の色を変更し、直近30フレームの分散を表示
         """
         if not hand_trajectory_data:
             logger.warning("手の軌跡データがありません")
@@ -90,26 +90,81 @@ class DataVisualizer:
             is_palm_up = np.array(is_palm_up)[sorted_indices]
             timestamps = np.array(timestamps)[sorted_indices]
 
+            # 分散計算用の関数
+            def calculate_variance(data, current_frame, window_size=30):
+                start_idx = max(0, current_frame - window_size + 1)
+                window_data = data[start_idx:current_frame + 1]
+                if len(window_data) > 0:
+                    return np.var(window_data)
+                return 0.0
+
             # figureとグリッドの設定
             fig = plt.figure(figsize=(15, 10))
-            gs = fig.add_gridspec(1, 2, width_ratios=[3, 1])  # 3:1の比率でスペースを分割
+            gs = fig.add_gridspec(1, 2, width_ratios=[3, 1])
 
             # 3Dプロット用のサブプロット
             ax = fig.add_subplot(gs[0], projection='3d')
             
             # テキスト表示用のサブプロット
             text_ax = fig.add_subplot(gs[1])
-            text_ax.axis('off')  # 軸を非表示に
+            text_ax.axis('off')
 
-            # テキストオブジェクトを作成（テキスト表示用のサブプロットに配置）
-            time_text = text_ax.text(0.05, 0.9, '', transform=text_ax.transAxes)
-            palm_state_text = text_ax.text(0.05, 0.8, '', transform=text_ax.transAxes)
-            coord_text = text_ax.text(0.05, 0.7, '', transform=text_ax.transAxes)
+            # フォントサイズを設定
+            TITLE_SIZE = 16
+            LABEL_SIZE = 14
+            INFO_SIZE = 12
+            LEGEND_SIZE = 12
+
+            # プロットのタイトルとラベルのフォントサイズを設定
+            ax.set_title('Hand Trajectory (3D)', fontsize=TITLE_SIZE)
+            ax.set_xlabel('X', fontsize=LABEL_SIZE)
+            ax.set_ylabel('Y', fontsize=LABEL_SIZE)
+            ax.set_zlabel('Z', fontsize=LABEL_SIZE)
+
+            # テキストオブジェクトを作成
+            time_text = text_ax.text(0.05, 0.90, '', 
+                                transform=text_ax.transAxes, 
+                                fontsize=INFO_SIZE,
+                                fontweight='bold')
+            palm_state_text = text_ax.text(0.05, 0.85, '', 
+                                        transform=text_ax.transAxes, 
+                                        fontsize=INFO_SIZE,
+                                        fontweight='bold')
+            coord_text = text_ax.text(0.05, 0.75, '', 
+                                    transform=text_ax.transAxes, 
+                                    fontsize=INFO_SIZE,
+                                    fontweight='bold')
+            
+            # 分散表示用のテキスト
+            variance_title = text_ax.text(0.05, 0.65, 'Variance (last 30 frames):',
+                                        transform=text_ax.transAxes,
+                                        fontsize=INFO_SIZE,
+                                        fontweight='bold')
+            x_var_text = text_ax.text(0.05, 0.60, '',
+                                    transform=text_ax.transAxes,
+                                    fontsize=INFO_SIZE)
+            y_var_text = text_ax.text(0.05, 0.55, '',
+                                    transform=text_ax.transAxes,
+                                    fontsize=INFO_SIZE)
             
             # 凡例用のテキスト
-            text_ax.text(0.05, 0.4, 'Color Legend:', transform=text_ax.transAxes, fontweight='bold')
-            text_ax.text(0.05, 0.3, 'Blue: Palm Up', transform=text_ax.transAxes, color='blue')
-            text_ax.text(0.05, 0.2, 'Red: Palm Down', transform=text_ax.transAxes, color='red')
+            text_ax.text(0.05, 0.4, 'Color Legend:', 
+                        transform=text_ax.transAxes, 
+                        fontsize=LEGEND_SIZE,
+                        fontweight='bold')
+            text_ax.text(0.05, 0.3, 'Blue: Palm Up', 
+                        transform=text_ax.transAxes, 
+                        color='blue',
+                        fontsize=LEGEND_SIZE)
+            text_ax.text(0.05, 0.2, 'Red: Palm Down', 
+                        transform=text_ax.transAxes, 
+                        color='red',
+                        fontsize=LEGEND_SIZE)
+
+            # 軸の目盛りのフォントサイズを設定
+            ax.tick_params(axis='x', labelsize=LABEL_SIZE)
+            ax.tick_params(axis='y', labelsize=LABEL_SIZE)
+            ax.tick_params(axis='z', labelsize=LABEL_SIZE)
 
             palm_up_lines = []
             palm_down_lines = []
@@ -120,10 +175,6 @@ class DataVisualizer:
             ax.set_ylim([min(y_coords) - margin, max(y_coords) + margin])
             ax.set_zlim([min(z_coords) - margin, max(z_coords) + margin])
             
-            ax.set_xlabel('X')
-            ax.set_ylabel('Y')
-            ax.set_zlabel('Z')
-            ax.set_title('Hand Trajectory (3D)')
             ax.grid(True)
             ax.view_init(elev=270, azim=90)
 
@@ -192,8 +243,15 @@ class DataVisualizer:
                     time_text.set_text(f'Time: {timestamps[frame]:.2f} sec')
                     palm_state_text.set_text(f'Palm State: {"UP" if is_palm_up[frame] else "DOWN"}')
                     coord_text.set_text(f'Position:\nX: {x_coords[frame]:.2f}\nY: {y_coords[frame]:.2f}\nZ: {z_coords[frame]:.2f}')
+                    
+                    # 分散を計算して表示
+                    x_variance = calculate_variance(x_coords, frame)
+                    y_variance = calculate_variance(y_coords, frame)
+                    x_var_text.set_text(f'X variance: {x_variance:.6f}')
+                    y_var_text.set_text(f'Y variance: {y_variance:.6f}')
                 
-                return palm_up_lines + palm_down_lines + [point, time_text, palm_state_text, coord_text]
+                return palm_up_lines + palm_down_lines + [point, time_text, palm_state_text, coord_text,
+                                                        x_var_text, y_var_text]
 
             # アニメーションの作成と保存
             num_frames = len(timestamps)
