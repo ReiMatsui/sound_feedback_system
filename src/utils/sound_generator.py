@@ -48,7 +48,7 @@ class SoundGenerator:
 
         # デモンストレーション用
         self.goal_point = Point(0.5, 0.5, 0.1)
-        self.goal_point = Point(0.6, 0.7, 0.3)
+        self.goal_point = Point(0.2, 0.2, 0.2)
 
         self._thread = None
         self.running = False
@@ -60,6 +60,8 @@ class SoundGenerator:
         self.stop_timer: Optional[threading.Timer] = None
         self.changeable_timer: Optional[threading.Timer] = None
         self.reset_timer: Optional[threading.Timer] = None
+        self.end_count = 0
+        self.if_end = False
         
         try:
             self.output = mido.open_output(output_name)
@@ -202,6 +204,9 @@ class SoundGenerator:
         
         if self.should_play_consonant(current_point, is_palm_up):
             self.volume = 90
+            self.end_count+=1
+            if self.end_count > 30:
+                self.if_end = True
             return self.current_scale.C_MAJOR.notes
         else:
             if is_palm_up:

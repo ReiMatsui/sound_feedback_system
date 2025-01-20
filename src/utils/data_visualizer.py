@@ -362,7 +362,7 @@ class DataVisualizer:
             except Exception as e:
                 logger.error(f"グラフ作成中にエラー: {e}")
 
-    def plot_trajectory_variance(hand_trajectory_data, window_size=30, save_path="variance_plot"):
+    def plot_trajectory_variance(self, hand_trajectory_data, window_size=30, save_path="variance_plot.png"):
         """
         手の軌跡データの分散を計算してグラフ化する関数
         
@@ -380,7 +380,7 @@ class DataVisualizer:
             timestamps = []
             x_coords = []
             y_coords = []
-            
+        
             for data in hand_trajectory_data.values():
                 timestamps.extend(data['timestamp'])
                 x_coords.extend(data['x'])
@@ -438,12 +438,11 @@ class DataVisualizer:
             fig.text(0.02, 0.02, stats_text, fontsize=10, transform=fig.transFigure)
 
             # グラフの保存
-            if save_path:
-                plt.savefig(save_path, dpi=300, bbox_inches='tight')
-                plt.close()
-                logger.info(f"分散グラフを保存しました: {save_path}")
+            save_path = self.session_dir / save_path
+            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+            plt.close()
+            logger.info(f"分散グラフを保存しました: {save_path}")
                 
-            return x_variances, y_variances, timestamps
 
         except Exception as e:
             logger.error(f"分散グラフの作成中にエラー: {e}")
