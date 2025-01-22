@@ -209,7 +209,7 @@ class HandProcessor:
                     is_palm_up = self.judge_palm_up(landmarks, handedness)
                     # 手の位置データ保存
                     self.data_recorder.record_hand_trajectory(landmarks, i, is_palm_up)
-  
+
                     new_notes = self.sound_generator.new_notes(hand_x, hand_y, hand_z, is_palm_up)
                     self.sound_generator.update_notes(new_notes)
                     

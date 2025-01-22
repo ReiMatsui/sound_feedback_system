@@ -48,7 +48,7 @@ class SoundGenerator:
 
         # デモンストレーション用
         self.goal_point = Point(0.5, 0.5, 0.1)
-        self.goal_point = Point(0.2, 0.2, 0.2)
+        self.goal_point = Point(0.2, 0.2, 0.5)
 
         self._thread = None
         self.running = False

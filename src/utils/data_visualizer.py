@@ -90,6 +90,8 @@ class DataVisualizer:
             is_palm_up = np.array(is_palm_up)[sorted_indices]
             timestamps = np.array(timestamps)[sorted_indices]
 
+            start_time = timestamps[0]
+
             # 分散計算用の関数
             def calculate_variance(data, current_frame, window_size=30):
                 start_idx = max(0, current_frame - window_size + 1)
@@ -130,7 +132,7 @@ class DataVisualizer:
                                         transform=text_ax.transAxes, 
                                         fontsize=INFO_SIZE,
                                         fontweight='bold')
-            coord_text = text_ax.text(0.05, 0.75, '', 
+            coord_text = text_ax.text(0.05, 0.7, '', 
                                     transform=text_ax.transAxes, 
                                     fontsize=INFO_SIZE,
                                     fontweight='bold')
@@ -148,15 +150,11 @@ class DataVisualizer:
                                     fontsize=INFO_SIZE)
             
             # 凡例用のテキスト
-            text_ax.text(0.05, 0.4, 'Color Legend:', 
-                        transform=text_ax.transAxes, 
-                        fontsize=LEGEND_SIZE,
-                        fontweight='bold')
-            text_ax.text(0.05, 0.3, 'Blue: Palm Up', 
+            text_ax.text(0.05, 0.4, 'Blue: Palm Up', 
                         transform=text_ax.transAxes, 
                         color='blue',
                         fontsize=LEGEND_SIZE)
-            text_ax.text(0.05, 0.2, 'Red: Palm Down', 
+            text_ax.text(0.05, 0.3, 'Red: Palm Down', 
                         transform=text_ax.transAxes, 
                         color='red',
                         fontsize=LEGEND_SIZE)
@@ -239,8 +237,10 @@ class DataVisualizer:
                     point.set_data([x_coords[frame]], [y_coords[frame]])
                     point.set_3d_properties([z_coords[frame]])
                     
+                    relative_time = timestamps[frame] - start_time
+
                     # テキスト情報を更新
-                    time_text.set_text(f'Time: {timestamps[frame]:.2f} sec')
+                    time_text.set_text(f'Time: {relative_time:.2f} sec')
                     palm_state_text.set_text(f'Palm State: {"UP" if is_palm_up[frame] else "DOWN"}')
                     coord_text.set_text(f'Position:\nX: {x_coords[frame]:.2f}\nY: {y_coords[frame]:.2f}\nZ: {z_coords[frame]:.2f}')
                     
@@ -431,7 +431,6 @@ class DataVisualizer:
             
             # 統計情報の表示
             stats_text = (
-                f'Statistics (window size: {window_size} frames)\n'
                 f'X Variance - Mean: {np.mean(x_variances):.6f}, Max: {np.max(x_variances):.6f}\n'
                 f'Y Variance - Mean: {np.mean(y_variances):.6f}, Max: {np.max(y_variances):.6f}'
             )

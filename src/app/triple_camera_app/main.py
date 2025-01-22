@@ -69,7 +69,7 @@ class Application:
             self.hand_processor.start()
             self.hand_processor2.start()
             self.hand_processor.sound_generator.play_rhythm()
-            self.hand_processor.sound_generator.set_changeable_timer(40,47)
+            self.hand_processor.sound_generator.set_stop_timer(40,45)
             
             while (self.face_camera_manager.capture.isOpened() and
                    self.hand_camera_manager.capture.isOpened() and
@@ -149,7 +149,7 @@ class Application:
         # OpenCVリソースの解放
         for camera_manager in [self.face_camera_manager, self.hand_camera_manager]:
             camera_manager.release()
-        for video_recorder in [self.face_video_recorder, self.face_video_recorder]:
+        for video_recorder in [self.face_video_recorder, self.hand_video_recorder]:
             video_recorder.release()
 
         cv2.destroyAllWindows()

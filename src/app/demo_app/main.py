@@ -5,6 +5,7 @@ import queue
 from src.models.point import Point
 
 class DemoApp(Application):
+    """デモ用のデータ記録を行わないアプリケーション"""
     def process_data(self):
         pass
 
@@ -94,14 +95,6 @@ def main():
     アプリケーション起動
     """    
     try:
-        # ログの設定
-        logger.add(
-            "logs/app_{time}.log",
-            rotation="1 day",
-            retention="7 days",
-            level="INFO",
-            encoding="utf-8"
-        )
         logger.info("アプリケーションを開始します")
         
         # アプリケーションの初期化と実行
