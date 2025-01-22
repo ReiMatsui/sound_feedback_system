@@ -392,6 +392,9 @@ class DataVisualizer:
             x_coords = np.array(x_coords)[sorted_indices]
             y_coords = np.array(y_coords)[sorted_indices]
 
+            start_time = timestamps[0]
+            timestamps = [(timestamp - start_time) for timestamp in timestamps]
+            
             # 分散を計算
             x_variances = []
             y_variances = []
@@ -446,6 +449,294 @@ class DataVisualizer:
         except Exception as e:
             logger.error(f"分散グラフの作成中にエラー: {e}")
             return None, None, None
+
+    def load_and_create_3d_animation(self, csv_path, output_dir="script"):
+        """
+        CSVファイルから手の軌跡データを読み込み、3Dアニメーションを作成する
+        分散計算を含む
+        
+        Parameters:
+        csv_path (str or Path): 軌跡データのCSVファイルパス
+        output_dir (str or Path): アニメーション保存先ディレクトリ
+        """
+        try:
+            # CSVファイルの読み込み
+            df = pd.read_csv(csv_path)
+            
+            # 必要なカラムが存在するか確認
+            required_columns = ['timestamp', 'x', 'y', 'z']
+            if not all(col in df.columns for col in required_columns):
+                raise ValueError(f"CSVファイルに必要なカラムがありません。必要なカラム: {required_columns}")
+            
+            # データを辞書形式に変換
+            hand_trajectory_data = {
+                'hand': {
+                    'timestamp': df['timestamp'].values,
+                    'x': df['x'].values,
+                    'y': df['y'].values,
+                    'z': df['z'].values,
+                    'is_palm_up': np.ones(len(df), dtype=bool)  # すべてTrueに設定
+                }
+            }
+            
+            # 分散計算用の関数
+            def calculate_variance(data, current_frame, window_size=30):
+                start_idx = max(0, current_frame - window_size + 1)
+                window_data = data[start_idx:current_frame + 1]
+                if len(window_data) > 0:
+                    return np.var(window_data)
+                return 0.0
+
+            def create_3d_trajectory_animation(hand_trajectory_data, output_dir):
+                if not hand_trajectory_data:
+                    logger.warning("手の軌跡データがありません")
+                    return
+
+                # データの取り出し
+                data = hand_trajectory_data['hand']
+                timestamps = data['timestamp']
+                x_coords = data['x']
+                y_coords = data['y']
+                z_coords = data['z']
+                start_tine = timestamps[0]
+
+                # figureとグリッドの設定
+                fig = plt.figure(figsize=(15, 10))
+                gs = fig.add_gridspec(1, 2, width_ratios=[3, 1])
+                ax = fig.add_subplot(gs[0], projection='3d')
+                text_ax = fig.add_subplot(gs[1])
+                text_ax.axis('off')
+
+                # フォントサイズを設定
+                TITLE_SIZE = 16
+                LABEL_SIZE = 14
+                INFO_SIZE = 12
+
+                # プロットの設定
+                ax.set_title('Hand Trajectory (3D)', fontsize=TITLE_SIZE)
+                ax.set_xlabel('X', fontsize=LABEL_SIZE)
+                ax.set_ylabel('Y', fontsize=LABEL_SIZE)
+                ax.set_zlabel('Z', fontsize=LABEL_SIZE)
+
+                # テキスト表示の設定
+                time_text = text_ax.text(0.05, 0.90, '', 
+                                    transform=text_ax.transAxes, 
+                                    fontsize=INFO_SIZE,
+                                    fontweight='bold')
+                coord_text = text_ax.text(0.05, 0.75, '', 
+                                        transform=text_ax.transAxes, 
+                                        fontsize=INFO_SIZE,
+                                        fontweight='bold')
+                
+                # 分散表示用のテキスト
+                variance_title = text_ax.text(0.05, 0.65, 'Variance (last 30 frames):',
+                                            transform=text_ax.transAxes,
+                                            fontsize=INFO_SIZE,
+                                            fontweight='bold')
+                x_var_text = text_ax.text(0.05, 0.60, '',
+                                        transform=text_ax.transAxes,
+                                        fontsize=INFO_SIZE)
+                y_var_text = text_ax.text(0.05, 0.55, '',
+                                        transform=text_ax.transAxes,
+                                        fontsize=INFO_SIZE)
+                z_var_text = text_ax.text(0.05, 0.50, '',
+                                        transform=text_ax.transAxes,
+                                        fontsize=INFO_SIZE)
+
+                # プロットの初期化
+                line = []
+                point = ax.plot([], [], [], 'o', c='blue', markersize=8)[0]
+
+                # 軸の範囲設定
+                margin = 0.1
+                ax.set_xlim([min(x_coords) - margin, max(x_coords) + margin])
+                ax.set_ylim([min(y_coords) - margin, max(y_coords) + margin])
+                ax.set_zlim([min(z_coords) - margin, max(z_coords) + margin])
+                
+                ax.grid(True)
+                ax.view_init(elev=270, azim=90)
+
+                def update(frame):
+                    # 以前のラインをクリア
+                    if line:
+                        line[0].remove()
+                    line.clear()
+                    
+                    # フレームまでのデータを描画
+                    if frame > 0:
+                        trajectory_line = ax.plot(x_coords[:frame+1],
+                                            y_coords[:frame+1],
+                                            z_coords[:frame+1],
+                                            c='blue',
+                                            alpha=0.7,
+                                            linewidth=2)[0]
+                        line.append(trajectory_line)
+                    
+                    # 現在位置の点と情報を更新
+                    point.set_data([x_coords[frame]], [y_coords[frame]])
+                    point.set_3d_properties([z_coords[frame]])
+                    
+                    relative_time = timestamps[frame] - start_tine
+                    # テキスト情報を更新
+                    time_text.set_text(f'Time: {relative_time:.2f} sec')
+                    coord_text.set_text(f'Position:\nX: {x_coords[frame]:.2f}\n'
+                                    f'Y: {y_coords[frame]:.2f}\n'
+                                    f'Z: {z_coords[frame]:.2f}')
+                    
+                    # 分散を計算して表示
+                    x_variance = calculate_variance(x_coords, frame)
+                    y_variance = calculate_variance(y_coords, frame)
+                    z_variance = calculate_variance(z_coords, frame)
+                    x_var_text.set_text(f'X variance: {x_variance:.6f}')
+                    y_var_text.set_text(f'Y variance: {y_variance:.6f}')
+                    z_var_text.set_text(f'Z variance: {z_variance:.6f}')
+                    
+                    return line + [point, time_text, coord_text,
+                                x_var_text, y_var_text, z_var_text]
+
+                # アニメーションの作成と保存
+                num_frames = len(timestamps)
+                ani = animation.FuncAnimation(fig, 
+                                            update,
+                                            frames=num_frames,
+                                            interval=50,
+                                            blit=True)
+
+                output_path = Path(output_dir) / 'hand_trajectory_3d.mp4'
+                writer = animation.FFMpegWriter(fps=20,
+                                            metadata=dict(artist='HandTracker'),
+                                            bitrate=5000)
+                ani.save(str(output_path), writer=writer)
+                
+                plt.close(fig)
+                logger.info(f"3Dアニメーションを保存しました: {output_path}")
+                
+            # アニメーションの作成
+            create_3d_trajectory_animation(hand_trajectory_data, output_dir)
+            
+        except Exception as e:
+            logger.error(f"エラーが発生しました: {e}")
+
+    def load_and_plot_trajectory_variance(self, csv_path, window_size=50, save_path="variance_plot.png"):
+        """
+        手の軌跡データの分散を計算してグラフ化する関数
+        
+        Parameters:
+        -----------
+        hand_trajectory_data : dict
+            手の軌跡データを含む辞書
+        window_size : int
+            分散を計算する際のウィンドウサイズ（デフォルト: 30フレーム）
+        save_path : str or Path, optional
+            グラフを保存するパス。Noneの場合は保存しない
+        """
+        try:
+            output_dir = Path("script")
+            # CSVファイルの読み込み
+            df = pd.read_csv(csv_path)
+            
+            # 必要なカラムが存在するか確認
+            required_columns = ['timestamp', 'x', 'y', 'z']
+            if not all(col in df.columns for col in required_columns):
+                raise ValueError(f"CSVファイルに必要なカラムがありません。必要なカラム: {required_columns}")
+            
+            # データを辞書形式に変換
+            hand_trajectory_data = {
+                'hand': {
+                    'timestamp': df['timestamp'].values,
+                    'x': df['x'].values,
+                    'y': df['y'].values,
+                    'z': df['z'].values,
+                    'is_palm_up': np.ones(len(df), dtype=bool)  # すべてTrueに設定
+                }
+            }
+            # データの準備
+            timestamps = []
+            x_coords = []
+            y_coords = []
+        
+            for data in hand_trajectory_data.values():
+                timestamps.extend(data['timestamp'])
+                x_coords.extend(data['x'])
+                y_coords.extend(data['y'])
+
+            # データを時系列でソート
+            sorted_indices = np.argsort(timestamps)
+            timestamps = np.array(timestamps)[sorted_indices]
+            x_coords = np.array(x_coords)[sorted_indices]
+            y_coords = np.array(y_coords)[sorted_indices]
+
+            start_time = timestamps[0]
+            timestamps = [(timestamp - start_time) for timestamp in timestamps]
+            
+            # 100秒までのデータに制限
+            mask = np.array(timestamps) <= 130
+            timestamps = np.array(timestamps)[mask]
+            x_coords = x_coords[mask]
+            y_coords = y_coords[mask]
+            
+            # 分散を計算
+            x_variances = []
+            y_variances = []
+            
+            for i in range(len(timestamps)):
+                start_idx = max(0, i - window_size + 1)
+                window_x = x_coords[start_idx:i+1]
+                window_y = y_coords[start_idx:i+1]
+                
+                if len(window_x) > 0:
+                    x_variances.append(np.var(window_x))
+                    y_variances.append(np.var(window_y))
+                else:
+                    x_variances.append(0.0)
+                    y_variances.append(0.0)
+
+            # グラフの作成
+            fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 8), sharex=True)
+            
+            # X座標の分散プロット
+            ax1.plot(timestamps, x_variances, 'b-', label='X Variance', linewidth=2)
+            ax1.set_title('X Coordinate Variance', fontsize=14)
+            ax1.set_ylabel('Variance', fontsize=12)
+            ax1.set_ylim(0, 0.12)
+            ax1.grid(True)
+            ax1.legend(fontsize=10)
+            
+            # Y座標の分散プロット
+            ax2.plot(timestamps, y_variances, 'r-', label='Y Variance', linewidth=2)
+            ax2.set_title('Y Coordinate Variance', fontsize=14)
+            ax2.set_xlabel('Time (seconds)', fontsize=12)
+            ax2.set_ylabel('Variance', fontsize=12)
+            ax2.set_ylim(0, 0.12)
+            ax2.grid(True)
+            ax2.legend(fontsize=10)
+
+            # レイアウトの調整
+            plt.tight_layout()
+            
+            # 統計情報の表示
+            stats_text = (
+                f'Statistics (window size: {window_size} frames)\n'
+                f'X Variance - Mean: {np.mean(x_variances):.6f}, Max: {np.max(x_variances):.6f}\n'
+                f'Y Variance - Mean: {np.mean(y_variances):.6f}, Max: {np.max(y_variances):.6f}'
+            )
+            fig.text(0.02, 0.02, stats_text, fontsize=10, transform=fig.transFigure)
+
+            # グラフの保存
+            save_path = output_dir / save_path
+            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+            plt.close()
+            logger.info(f"分散グラフを保存しました: {save_path}")
+                
+
+        except Exception as e:
+            logger.error(f"分散グラフの作成中にエラー: {e}")
+            return None, None, None
+
 if __name__ == "__main__":
-    file_path = ""
-    df = pd.read_csv(file_path)
+    file_path = "data/20250113_175606Jieさん/hand_trajectories.csv"
+    file_path = "data/20250113_180612Jieさん/hand_trajectories.csv"
+    
+    visualizer = DataVisualizer("script")
+    visualizer.load_and_plot_trajectory_variance(file_path)
+    # visualizer.load_and_create_3d_animation(file_path)

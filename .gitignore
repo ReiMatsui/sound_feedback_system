@@ -9,3 +9,5 @@ poetry.lock
 .DS_Store
 output/
 .env
+data/
+script/
