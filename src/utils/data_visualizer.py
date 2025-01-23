@@ -733,10 +733,62 @@ class DataVisualizer:
             logger.error(f"分散グラフの作成中にエラー: {e}")
             return None, None, None
 
+    def load_and_create_face_orientation_plots(self, csv_path):
+        """
+        顔の向きのグラフを作成して保存
+        """
+        output_dir = Path("script")
+        # CSVファイルの読み込み
+        df = pd.read_csv(csv_path)
+        self.stop_time = 30
+        # データを辞書形式に変換
+        face_orientation_data = {
+            'timestamp': df['timestamp'].values,
+            'yaw': df['yaw'].values,
+            'pitch': df['pitch'].values,
+            'roll': df['roll'].values,
+        }
+        try:
+            fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(12, 12))
+            df = pd.DataFrame(face_orientation_data, 
+                             columns=['timestamp', 'yaw', 'pitch', 'roll'])
+            df['relative_time'] = df['timestamp'] - df['timestamp'].iloc[0]
+            
+            ax1.plot(df['relative_time'], df['yaw'], 'b-', linewidth=1)
+            ax1.axvline(x=self.stop_time, color='red', linestyle='--', linewidth=1)  # 赤い縦線
+            ax1.set_title('Yaw (Left/Right) Over Time')
+            ax1.set_ylabel('Angle (degrees)')
+            ax1.grid(True)
+            
+            ax2.plot(df['relative_time'], df['pitch'], 'r-', linewidth=1)
+            ax2.axvline(x=self.stop_time, color='red', linestyle='--', linewidth=1)  # 赤い縦線
+            ax2.set_title('Pitch (Up/Down) Over Time')
+            ax2.set_ylabel('Angle (degrees)')
+            ax2.grid(True)
+            
+            ax3.plot(df['relative_time'], df['roll'], 'g-', linewidth=1)
+            ax3.axvline(x=self.stop_time, color='red', linestyle='--', linewidth=1)  # 赤い縦線
+            ax3.set_title('Roll (Head Tilt) Over Time')
+            ax3.set_xlabel('Time (seconds)')
+            ax3.set_ylabel('Angle (degrees)')
+            ax3.grid(True)
+            
+            plt.tight_layout()
+            
+            plot_path = output_dir / 'face_orientation_plot.png'
+            plt.savefig(plot_path, dpi=300, bbox_inches='tight')
+            plt.close(fig)
+            
+            logger.info(f"顔の向きグラフを保存しました: {plot_path}")
+        except Exception as e:
+            logger.error(f"グラフ作成中にエラー: {e}")
+
 if __name__ == "__main__":
     file_path = "data/20250113_175606Jieさん/hand_trajectories.csv"
     file_path = "data/20250113_180612Jieさん/hand_trajectories.csv"
+    file_path = "data/20250113_132913Jieさん/face_orientation.csv"
     
     visualizer = DataVisualizer("script")
-    visualizer.load_and_plot_trajectory_variance(file_path)
+    # visualizer.load_and_plot_trajectory_variance(file_path)
     # visualizer.load_and_create_3d_animation(file_path)
+    visualizer.load_and_create_face_orientation_plots(file_path)
