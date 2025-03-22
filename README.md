@@ -1,4 +1,4 @@
-# nakamura_lab_research
+# sound_feedback_system
 ## 環境構築
 * Python 3.10.15
 * Poetry 1.8.3(以下でダウンロード)
